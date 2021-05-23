@@ -29,21 +29,55 @@ var chip8FontSet = [80]byte{
 // Chip8
 type Chip8 struct {
 	Opcode uint16
-	I      uint16
-	PC     uint16
-	SP     uint16
 
+	// point at locations in memory
+	I uint16
+
+	// points at the current instruction in memory
+	PC uint16
+
+	// The 4096 bytes of memory.
+	//
+	// Memory Map:
+	// +---------------+= 0xFFF (4095) End of Chip-8 RAM
+	// |               |
+	// |               |
+	// |               |
+	// |               |
+	// |               |
+	// | 0x200 to 0xFFF|
+	// |     Chip-8    |
+	// | Program / Data|
+	// |     Space     |
+	// |               |
+	// |               |
+	// |               |
+	// +- - - - - - - -+= 0x600 (1536) Start of ETI 660 Chip-8 programs
+	// |               |
+	// |               |
+	// |               |
+	// +---------------+= 0x200 (512) Start of most Chip-8 programs
+	// | 0x000 to 0x1FF|
+	// | Reserved for  |
+	// |  interpreter  |
+	// +---------------+= 0x000 (0) Start of Chip-8 RAM
 	Memory [4096]byte
-	V      [16]byte
-	Stack  [16]byte
+	// 16 8-bit (one byte) general-purpose variable registers numbered
+	V [16]byte
 
-	Display [64][32]byte
-	isDrawing bool
+	// call subroutines/functions and return from them
+	Stack [16]byte
+
+	// Stack pointer
+	SP uint16
+
+	// Display: 64 x 32 pixels
+	Display [64 * 32]byte
+
+	// HEX Keypad
+	Keypad [16]byte
 
 	DelayTimer byte
-
-
-	Sound func()
 }
 
 func main() {
@@ -55,34 +89,39 @@ func main() {
 	// 	panic(err)
 	// }
 
-	chip8 := &Chip8{}
+	chip8 := Chip8{}
 
 	chip8.Init()
 
-	data := ReadROM("roms/IBMLogo.ch8")
+	data := ReadROM("roms/IBMLOGO.ch8")
 
 	for i := range data {
-		chip8.Memory[i+512] = data[i]
+		chip8.Memory[512+i] = data[i]
 	}
 
 	for {
 
-		chip8.Opcode = chip8.Memory[chip8.PC]<<8 | chip8.Memory[chip8.PC+1]
+		chip8.Opcode = (uint16(chip8.Memory[chip8.PC]) << 8) | uint16(chip8.Memory[chip8.PC+1])
 
 		switch chip8.Opcode & 0xF000 {
 		case 0x0000:
 			switch chip8.Opcode & 0x000F {
-			case 0xE0:
+			case 0x0000:
 				// Clears the screen
 				// disp_clear()
-			case 0xEE:
+				for i := 0; i < len(chip8.Display); i++ {
+					chip8.Display[i] = 0
+				}
+				chip8.PC += 2
+			case 0x000E:
 				// Returns from a subroutine
 				// return;
 			default:
-				panic(fmt.Sprintf("unknown opcode [0x0000]: %x", chip8.Opcode))
+				panic(fmt.Sprintf("unknown opcode [0x0000]: 0x%X\n", chip8.Opcode))
 			}
 		case 0x1000: // 1NNN
 			// Jumps to address NNN
+			chip8.PC = chip8.Opcode & 0x0FFF
 		case 0x2000: // 2NNN
 			// Calls subroutine at NNN.
 		case 0x3000: // 3XNN
@@ -97,9 +136,17 @@ func main() {
 		case 0x6000: // 6XNN
 			// Sets VX to NN
 			// Vx = NN
+			v := chip8.Opcode >> 8 & 0x000F
+			nn := byte(chip8.Opcode & 0x00FF)
+			chip8.V[v] = nn
+			chip8.PC += 2
 		case 0x7000: // 7XNN
 			// Adds NN to VX. (Carry flag is not changed)
 			// Vx += NN
+			v := chip8.Opcode >> 8 & 0x000F
+			nn := byte(chip8.Opcode & 0x00FF)
+			chip8.V[v] += nn
+			chip8.PC += 2
 		case 0x8000:
 			switch chip8.Opcode & 0x000F {
 			case 0x0:
@@ -130,7 +177,7 @@ func main() {
 				// Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
 				// Vx<<=1
 			default:
-				panic(fmt.Sprintf("unknown opcode [0x8000]: %x", chip8.Opcode))
+				panic(fmt.Sprintf("unknown opcode [0x8000]: 0x%X\n", chip8.Opcode))
 			}
 		case 0x9000: // 9XY0
 			// Skips the next instruction if VX does not equal VY. (Usually the next instruction is a jump to skip a code block)
@@ -138,6 +185,9 @@ func main() {
 		case 0xA000: // ANNN
 			// Sets I to the address NNN.
 			// I = NNN
+			nnn := chip8.Opcode & 0x0FFF
+			chip8.I = nnn
+			chip8.PC += 2
 		case 0xB000: // BNNN
 			// Jumps to the address NNN plus V0.
 			// PC=V0+NNN
@@ -158,7 +208,7 @@ func main() {
 				// Skips the next instruction if the key stored in VX is not pressed. (Usually the next instruction is a jump to skip a code block)
 				// if(key()!=Vx)
 			default:
-				panic(fmt.Sprintf("unknown opcode [0xE000]: %x", chip8.Opcode))
+				panic(fmt.Sprintf("unknown opcode [0xE000]: 0x%X\n", chip8.Opcode))
 			}
 		case 0xF000:
 			switch chip8.Opcode & 0x00FF {
@@ -199,11 +249,11 @@ func main() {
 				// The offset from I is increased by 1 for each value written, but I itself is left unmodified.
 				// reg_load(Vx,&I)
 			default:
-				panic(fmt.Sprintf("unknown opcode [0xF000]: %x", chip8.Opcode))
+				panic(fmt.Sprintf("unknown opcode [0xF000]: 0x%X\n", chip8.Opcode))
 			}
 
 		default:
-			panic(fmt.Sprintf("unknown opcode: %x", chip8.Opcode))
+			panic(fmt.Sprintf("unknown opcode: 0x%X\n", chip8.Opcode))
 		}
 
 	}
@@ -211,10 +261,21 @@ func main() {
 }
 
 func (c Chip8) Init() {
-	
+	c.Opcode = 0
+	c.PC = 0x200
+	c.I = 0
+	c.SP = 0
+
+	for i := 0; i < 80; i++ {
+		c.Memory[i] = chip8FontSet[i];
+	}
 }
 
 func (c Chip8) LoadROM() {
+
+}
+
+func (c Chip8) Disassemble() {
 
 }
 
@@ -224,35 +285,6 @@ func ReadROM(filename string) []byte {
 		panic(err)
 	}
 	return bytes
-}
-
-
-func ClearDisplay() {
-	
-}
-
-func DrawDisplay() {
-
-}
-
-func RetSub() {
-
-}
-
-func Jump() {
-	
-}
-
-func CallSub() {
-
-}
-
-func SkipIfEqual() {
-	
-}
-
-func SkipIfNotEqual() {
-
 }
 
 type Game struct{}
