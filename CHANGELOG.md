@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2021-05-23
+
+### Added
+
+- opcode functionality for DXYN
+- disassembler for debugging
+- disassembler cli which you can use to choose a chip 8 rom to disassemble
+- stub code for graphics
+
 ## [0.1.1] - 2021-05-22
 
 ### Added
