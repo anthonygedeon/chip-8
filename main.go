@@ -364,9 +364,9 @@ func main() {
 		case 0x7000: // 7XNN
 			// Adds NN to VX. (Carry flag is not changed)
 			// Vx += NN
-			v := chip8.Opcode >> 8 & 0x000F
+			x := chip8.Opcode >> 8 & 0x000F
 			nn := byte(chip8.Opcode & 0x00FF)
-			chip8.V[v] += nn
+			chip8.V[x] += nn
 			chip8.PC += 2
 		case 0x8000:
 			switch chip8.Opcode & 0x000F {
@@ -420,6 +420,15 @@ func main() {
 			// Each row of 8 pixels is read as bit-coded starting from memory location I; I value does not change after the execution of this instruction
 			// As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that does not happen
 			// draw(Vx,Vy,N)
+
+			// n := chip8.Opcode & 0x000F
+			// x := chip8.V[(chip8.Opcode>>8) & 0x000F]
+			// y := chip8.V[(chip8.Opcode>>4) & 0x000F]
+
+			chip8.V[0xF] = 0
+
+			chip8.PC += 2
+
 		case 0xE000:
 			switch chip8.Opcode & 0x00FF {
 			case 0x9E:
