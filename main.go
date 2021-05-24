@@ -1,10 +1,17 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
+)
+
+const (
+	screenWidth  = 320
+	screenHeight = 240
 )
 
 var chip8FontSet = [80]byte{
@@ -25,6 +32,16 @@ var chip8FontSet = [80]byte{
 	0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
 	0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 }
+
+type Pixel struct {
+	X, Y byte
+}
+
+func (p Pixel) Draw() {
+
+}
+
+type Game struct{}
 
 // Chip8
 type Chip8 struct {
@@ -257,48 +274,4 @@ func main() {
 		}
 
 	}
-
-}
-
-func (c Chip8) Init() {
-	c.Opcode = 0
-	c.PC = 0x200
-	c.I = 0
-	c.SP = 0
-
-	for i := 0; i < 80; i++ {
-		c.Memory[i] = chip8FontSet[i];
-	}
-}
-
-func (c Chip8) LoadROM() {
-
-}
-
-func (c Chip8) Disassemble() {
-
-}
-
-func ReadROM(filename string) []byte {
-	bytes, err := ioutil.ReadFile(filename)
-	if err != nil {
-		panic(err)
-	}
-	return bytes
-}
-
-type Game struct{}
-
-func (g *Game) Update() error {
-	// update the logical state
-	return nil
-}
-
-func (g *Game) Draw(screen *ebiten.Image) {
-	// render the screen
-}
-
-func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	// return the game size
-	return 320, 240
 }
