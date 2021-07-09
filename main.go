@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"image/color"
 	"io/ioutil"
 	"os"
 
@@ -13,6 +14,8 @@ const (
 	screenWidth  = 320
 	screenHeight = 240
 )
+
+var pixelImage = ebiten.NewImage(10, 10)
 
 var chip8FontSet = [80]byte{
 	0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -33,15 +36,9 @@ var chip8FontSet = [80]byte{
 	0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 }
 
-type Pixel struct {
-	X, Y byte
+type Game struct {
+	x,y byte 
 }
-
-func (p Pixel) Draw() {
-
-}
-
-type Game struct{}
 
 // Chip8
 type Chip8 struct {
@@ -263,10 +260,19 @@ func (c Chip8) Disassemble(program byte, pc uint16) {
 }
 
 func ReadROM(filename string) []byte {
-	bytes, err := ioutil.ReadFile(filename)
+
+	file, err := os.Open(filename)
 	if err != nil {
 		panic(err)
 	}
+
+	defer file.Close()
+
+	bytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		panic(err)
+	}
+
 	return bytes
 }
 
@@ -276,29 +282,37 @@ func (g *Game) Update() error {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Apply(float64(g.x), float64(g.y))
+
+	screen.DrawImage(pixelImage, op)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return screenWidth, screenHeight
 }
 
+func init() {
+	pixelImage.Fill(color.White)
+}
+
 func main() {
 
-	// ebiten.SetWindowSize(screenWidth*2, screenHeight*2)
-	// ebiten.SetWindowTitle("Chip 8")
-	// game := &Game{}
-	// if err := ebiten.RunGame(game); err != nil {
-	// 	panic(err)
-	// }
+	ebiten.SetWindowSize(screenWidth*2, screenHeight*2)
+	ebiten.SetWindowTitle("Chip 8")
+	game := &Game{x: 0, y: 0}
+	if err := ebiten.RunGame(game); err != nil {
+		panic(err)
+	}
 
 	file := flag.String("d", "", "`disassemble` a chip 8 program")
 	flag.Parse()
-	
+
 	chip8 := Chip8{}
 
 	chip8.Init()
 
-	data := ReadROM("roms/IBMLOGO.ch8")
+	data := ReadROM(*file)
 
 	for i := range data {
 		chip8.Memory[512+i] = data[i]
@@ -317,7 +331,6 @@ func main() {
 			chip8Disassebmler.Disassemble(p, chip8Disassebmler.PC)
 			chip8Disassebmler.PC += 2
 		}
-		os.Exit(0)
 	}
 
 	for {
@@ -421,11 +434,18 @@ func main() {
 			// As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that does not happen
 			// draw(Vx,Vy,N)
 
-			// n := chip8.Opcode & 0x000F
-			// x := chip8.V[(chip8.Opcode>>8) & 0x000F]
-			// y := chip8.V[(chip8.Opcode>>4) & 0x000F]
-
+			n := byte(chip8.Opcode & 0x000F)
+			x := chip8.V[(chip8.Opcode>>8)&0x000F]
+			y := chip8.V[(chip8.Opcode>>4)&0x000F]
 			chip8.V[0xF] = 0
+
+			for posY := y; posY < y+n; posY++ {
+				data := chip8.Memory[chip8.I]
+
+				for posX := x; posX < data; posX++ {
+						
+				}
+			}
 
 			chip8.PC += 2
 
