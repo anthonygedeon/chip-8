@@ -1,7 +1,7 @@
 package main
 
 import (
-	"flag"
+	// "flag"
 	"fmt"
 	"image/color"
 	"io/ioutil"
@@ -14,8 +14,6 @@ const (
 	screenWidth  = 320
 	screenHeight = 240
 )
-
-var pixelImage = ebiten.NewImage(10, 10)
 
 var chip8FontSet = [80]byte{
 	0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -34,10 +32,6 @@ var chip8FontSet = [80]byte{
 	0xE0, 0x90, 0x90, 0x90, 0xE0, // D
 	0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
 	0xF0, 0x80, 0xF0, 0x80, 0x80, // F
-}
-
-type Game struct {
-	x,y byte 
 }
 
 // Chip8
@@ -85,8 +79,8 @@ type Chip8 struct {
 	// Stack pointer
 	SP uint16
 
-	// Display: 64 x 32 pixels
-	Display [64 * 32]byte
+	// Display: 64 x 32
+	Display [64*10][32*10]uint16
 
 	// HEX Keypad
 	Keypad [16]byte
@@ -94,16 +88,267 @@ type Chip8 struct {
 	DelayTimer byte
 }
 
-func (c Chip8) Init() {
+func main() {
+
+	chip8 := Chip8{}
+
+	chip8.Init()
+
+	data := ReadROM("roms/IBMLOGO.ch8") // Testing purposes
+
+	for i := range data {
+		chip8.Memory[512+i] = data[i]
+	}
+
+	ebiten.SetWindowSize(screenWidth*2, screenHeight*2)
+	ebiten.SetWindowTitle("Chip 8")
+	if err := ebiten.RunGame(&chip8); err != nil {
+		panic(err)
+	}
+
+	// file := flag.String("d", "", "`disassemble` a chip 8 program")
+	// flag.Parse()
+
+	// if *file != "" {
+	// 	chip8Disassebmler := Chip8{}
+	// 	chip8Disassebmler.Init()
+	// 	fmt.Println(chip8Disassebmler.PC)
+	// 	chip8Disassebmler.PC = 512
+	// 	program := ReadROM(*file)
+	// 	for i := range program {
+	// 		chip8Disassebmler.Memory[512+i] = data[i]
+	// 	}
+	// 	for _, p := range chip8Disassebmler.Memory[chip8Disassebmler.PC : 512+len(program)] {
+	// 		chip8Disassebmler.Disassemble(p, chip8Disassebmler.PC)
+	// 		chip8Disassebmler.PC += 2
+	// 	}
+	// }
+
+}
+
+func (chip8 *Chip8) Update() error {
+
+	chip8.Opcode = (uint16(chip8.Memory[chip8.PC]) << 8) | uint16(chip8.Memory[chip8.PC+1])
+
+	switch chip8.Opcode & 0xF000 {
+	case 0x0000:
+		switch chip8.Opcode & 0x000F {
+		case 0x0000:
+			// Clears the screen
+			// disp_clear()
+			chip8.Display = [64*10][32*10]uint16{}
+			chip8.PC += 2
+		case 0x000E:
+			// Returns from a subroutine
+			// return;
+		default:
+			panic(fmt.Sprintf("unknown opcode [0x0000]: 0x%X\n", chip8.Opcode))
+		}
+	case 0x1000: // 1NNN
+		// Jumps to address NNN
+		chip8.PC = chip8.Opcode & 0x0FFF
+	case 0x2000: // 2NNN
+		// Calls subroutine at NNN.
+	case 0x3000: // 3XNN
+		// Skips the next instruction if VX equals NN. (Usually the next instruction is a jump to skip a code block)
+		// if(Vx==NN)
+	case 0x4000: // 4XNN
+		// Skips the next instruction if VX does not equal NN. (Usually the next instruction is a jump to skip a code block)
+		// if(Vx!=NN)
+	case 0x5000: // 5XY0
+		// Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to skip a code block)
+		// if(Vx==Vy)
+	case 0x6000: // 6XNN
+		// Sets VX to NN
+		// Vx = NN
+		v := chip8.Opcode >> 8 & 0x000F
+		nn := byte(chip8.Opcode & 0x00FF)
+		chip8.V[v] = nn
+		chip8.PC += 2
+	case 0x7000: // 7XNN
+		// Adds NN to VX. (Carry flag is not changed)
+		// Vx += NN
+		x := chip8.Opcode >> 8 & 0x000F
+		nn := byte(chip8.Opcode & 0x00FF)
+		chip8.V[x] += nn
+		chip8.PC += 2
+	case 0x8000:
+		switch chip8.Opcode & 0x000F {
+		case 0x0:
+			// Sets VX to the value of VY.
+			// Vx=Vy
+		case 0x1:
+			// Sets VX to VX or VY. (Bitwise OR operation)
+			// Vx=Vx|Vy
+		case 0x2:
+			// Sets VX to VX and VY. (Bitwise AND operation)
+			// Vx=Vx&Vy
+		case 0x3:
+			// Sets VX to VX xor VY.
+			// Vx=Vx^Vy
+		case 0x4:
+			// Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there is not.
+			// Vx += Vy
+		case 0x5:
+			// VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there is not.
+			// Vx -= Vy
+		case 0x6:
+			// Stores the least significant bit of VX in VF and then shifts VX to the right by 1.
+			// Vx>>=1
+		case 0x7:
+			// Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there is not
+			// Vx=Vy-Vx
+		case 0xE:
+			// Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
+			// Vx<<=1
+		default:
+			panic(fmt.Sprintf("unknown opcode [0x8000]: 0x%X\n", chip8.Opcode))
+		}
+	case 0x9000: // 9XY0
+		// Skips the next instruction if VX does not equal VY. (Usually the next instruction is a jump to skip a code block)
+		// if(Vx!=Vy)
+	case 0xA000: // ANNN
+		// Sets I to the address NNN.
+		// I = NNN
+		nnn := chip8.Opcode & 0x0FFF
+		chip8.I = nnn
+		chip8.PC += 2
+	case 0xB000: // BNNN
+		// Jumps to the address NNN plus V0.
+		// PC=V0+NNN
+	case 0xC000: // CXNN
+		// Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255) and NN.
+		// Vx=rand()&NN
+	case 0xD000: // DXYN
+		// Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N+1 pixels
+		// Each row of 8 pixels is read as bit-coded starting from memory location I; I value does not change after the execution of this instruction
+		// As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that does not happen
+		// draw(Vx,Vy,N)
+
+		n := byte(chip8.Opcode & 0x000F)
+		x := chip8.V[(chip8.Opcode>>8)&0x000F]
+		y := chip8.V[(chip8.Opcode>>4)&0x000F]
+		chip8.V[0xF] = 0
+
+		for posY := 0; byte(posY) < n; posY++ {
+			data := chip8.Memory[chip8.I+uint16(posY)]
+			for posX := 0; posX < 8; posX++ {
+				if (data & (0x80 >> posX)) != 0 {
+					if chip8.Display[(int(x)+posX)*5][(int(y)+posY)*8] == 1 {
+						chip8.V[0xF] = 1
+					}
+					chip8.Display[(int(x)+posX)*5][(int(y)+posY)*8] ^= 1
+				}
+			}
+		}
+
+		chip8.PC += 2
+
+	case 0xE000:
+		switch chip8.Opcode & 0x00FF {
+		case 0x9E:
+			// Skips the next instruction if the key stored in VX is pressed. (Usually the next instruction is a jump to skip a code block)
+			// if(key()==Vx)
+		case 0xA1:
+			// Skips the next instruction if the key stored in VX is not pressed. (Usually the next instruction is a jump to skip a code block)
+			// if(key()!=Vx)
+		default:
+			panic(fmt.Sprintf("unknown opcode [0xE000]: 0x%X\n", chip8.Opcode))
+		}
+	case 0xF000:
+		switch chip8.Opcode & 0x00FF {
+		case 0x07:
+			// Sets VX to the value of the delay timer.
+			// Vx = get_delay()
+		case 0x0A:
+			// A key press is awaited, and then stored in VX. (Blocking Operation. All instruction halted until next key event)
+			// Vx = get_key()
+		case 0x15:
+			// Sets the delay timer to VX.
+			// delay_timer(Vx)
+		case 0x18:
+			// Sets the sound timer to VX.
+			// sound_timer(Vx)
+		case 0x1E:
+			// Adds VX to I. VF is not affected
+			// I +=Vx
+		case 0x29:
+			// Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by a 4x5 font.
+			// I=sprite_addr[Vx]
+		case 0x33:
+			// Stores the binary-coded decimal representation of VX, with the most
+			// significant of three digits at the address in I, the middle digit at I plus 1, and the
+			// least significant digit at I plus 2. (In other words, take the decimal
+			// representation of VX, place the hundreds digit in memory at location in I, the
+			// tens digit at location I+1, and the ones digit at location I+2.)
+			// set_BCD(Vx)
+			// *(I+0)=BCD(3)
+			// *(I+1)=BCD(2)
+			// *(I+2)=BCD(1)
+		case 0x55:
+			// Stores V0 to VX (including VX) in memory starting at address I.
+			// The offset from I is increased by 1 for each value written, but I itself is left unmodified
+			// reg_dump(Vx,&I)
+		case 0x65:
+			// Fills V0 to VX (including VX) with values from memory starting at address I
+			// The offset from I is increased by 1 for each value written, but I itself is left unmodified.
+			// reg_load(Vx,&I)
+		default:
+			panic(fmt.Sprintf("unknown opcode [0xF000]: 0x%X\n", chip8.Opcode))
+		}
+
+	default:
+		panic(fmt.Sprintf("unknown opcode: 0x%X\n", chip8.Opcode))
+	}
+
+	return nil
+}
+
+func (g *Chip8) Draw(screen *ebiten.Image) {
+	for row := 0; row < len(g.Display); row++ {
+		for col := 0; col < len(g.Display[row]); col++ {
+			var currentColor color.Color 
+
+			if g.Display[row][col] == 1 {
+				currentColor = color.White
+			} else {
+				currentColor = color.Black
+			}
+			
+			screen.Set(row, col, currentColor)
+		}
+	}
+}
+
+func (g *Chip8) Layout(outsideWidth, outsideHeight int) (int, int) {
+	return screenWidth, screenHeight
+}
+
+func ReadROM(filename string) []byte {
+
+	file, err := os.Open(filename)
+	if err != nil {
+		panic(err)
+	}
+
+	defer file.Close()
+
+	bytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		panic(err)
+	}
+
+	return bytes
+}
+
+func (c *Chip8) Init() {
 	c.Opcode = 0
 	c.PC = 0x200
 	c.I = 0
 	c.SP = 0
 
 	// clears the display
-	for i := 0; i < len(c.Display); i++ {
-		c.Display[i] = 0
-	}
+	c.Display = [64*10][32*10]uint16{}
 
 	// load font set
 	for i := 0; i < 80; i++ {
@@ -256,255 +501,5 @@ func (c Chip8) Disassemble(program byte, pc uint16) {
 		}
 	default:
 		fmt.Printf("UNKN %X\n", c.Opcode)
-	}
-}
-
-func ReadROM(filename string) []byte {
-
-	file, err := os.Open(filename)
-	if err != nil {
-		panic(err)
-	}
-
-	defer file.Close()
-
-	bytes, err := ioutil.ReadAll(file)
-	if err != nil {
-		panic(err)
-	}
-
-	return bytes
-}
-
-func (g *Game) Update() error {
-	return nil
-}
-
-func (g *Game) Draw(screen *ebiten.Image) {
-
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Apply(float64(g.x), float64(g.y))
-
-	screen.DrawImage(pixelImage, op)
-}
-
-func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return screenWidth, screenHeight
-}
-
-func init() {
-	pixelImage.Fill(color.White)
-}
-
-func main() {
-
-	ebiten.SetWindowSize(screenWidth*2, screenHeight*2)
-	ebiten.SetWindowTitle("Chip 8")
-	game := &Game{x: 0, y: 0}
-	if err := ebiten.RunGame(game); err != nil {
-		panic(err)
-	}
-
-	file := flag.String("d", "", "`disassemble` a chip 8 program")
-	flag.Parse()
-
-	chip8 := Chip8{}
-
-	chip8.Init()
-
-	data := ReadROM(*file)
-
-	for i := range data {
-		chip8.Memory[512+i] = data[i]
-	}
-
-	if *file != "" {
-		chip8Disassebmler := Chip8{}
-		chip8Disassebmler.Init()
-		fmt.Println(chip8Disassebmler.PC)
-		chip8Disassebmler.PC = 512
-		program := ReadROM(*file)
-		for i := range program {
-			chip8Disassebmler.Memory[512+i] = data[i]
-		}
-		for _, p := range chip8Disassebmler.Memory[chip8Disassebmler.PC : 512+len(program)] {
-			chip8Disassebmler.Disassemble(p, chip8Disassebmler.PC)
-			chip8Disassebmler.PC += 2
-		}
-	}
-
-	for {
-
-		chip8.Opcode = (uint16(chip8.Memory[chip8.PC]) << 8) | uint16(chip8.Memory[chip8.PC+1])
-
-		switch chip8.Opcode & 0xF000 {
-		case 0x0000:
-			switch chip8.Opcode & 0x000F {
-			case 0x0000:
-				// Clears the screen
-				// disp_clear()
-				for i := 0; i < len(chip8.Display); i++ {
-					chip8.Display[i] = 0
-				}
-				chip8.PC += 2
-			case 0x000E:
-				// Returns from a subroutine
-				// return;
-			default:
-				panic(fmt.Sprintf("unknown opcode [0x0000]: 0x%X\n", chip8.Opcode))
-			}
-		case 0x1000: // 1NNN
-			// Jumps to address NNN
-			chip8.PC = chip8.Opcode & 0x0FFF
-		case 0x2000: // 2NNN
-			// Calls subroutine at NNN.
-		case 0x3000: // 3XNN
-			// Skips the next instruction if VX equals NN. (Usually the next instruction is a jump to skip a code block)
-			// if(Vx==NN)
-		case 0x4000: // 4XNN
-			// Skips the next instruction if VX does not equal NN. (Usually the next instruction is a jump to skip a code block)
-			// if(Vx!=NN)
-		case 0x5000: // 5XY0
-			// Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to skip a code block)
-			// if(Vx==Vy)
-		case 0x6000: // 6XNN
-			// Sets VX to NN
-			// Vx = NN
-			v := chip8.Opcode >> 8 & 0x000F
-			nn := byte(chip8.Opcode & 0x00FF)
-			chip8.V[v] = nn
-			chip8.PC += 2
-		case 0x7000: // 7XNN
-			// Adds NN to VX. (Carry flag is not changed)
-			// Vx += NN
-			x := chip8.Opcode >> 8 & 0x000F
-			nn := byte(chip8.Opcode & 0x00FF)
-			chip8.V[x] += nn
-			chip8.PC += 2
-		case 0x8000:
-			switch chip8.Opcode & 0x000F {
-			case 0x0:
-				// Sets VX to the value of VY.
-				// Vx=Vy
-			case 0x1:
-				// Sets VX to VX or VY. (Bitwise OR operation)
-				// Vx=Vx|Vy
-			case 0x2:
-				// Sets VX to VX and VY. (Bitwise AND operation)
-				// Vx=Vx&Vy
-			case 0x3:
-				// Sets VX to VX xor VY.
-				// Vx=Vx^Vy
-			case 0x4:
-				// Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there is not.
-				// Vx += Vy
-			case 0x5:
-				// VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there is not.
-				// Vx -= Vy
-			case 0x6:
-				// Stores the least significant bit of VX in VF and then shifts VX to the right by 1.
-				// Vx>>=1
-			case 0x7:
-				// Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there is not
-				// Vx=Vy-Vx
-			case 0xE:
-				// Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
-				// Vx<<=1
-			default:
-				panic(fmt.Sprintf("unknown opcode [0x8000]: 0x%X\n", chip8.Opcode))
-			}
-		case 0x9000: // 9XY0
-			// Skips the next instruction if VX does not equal VY. (Usually the next instruction is a jump to skip a code block)
-			// if(Vx!=Vy)
-		case 0xA000: // ANNN
-			// Sets I to the address NNN.
-			// I = NNN
-			nnn := chip8.Opcode & 0x0FFF
-			chip8.I = nnn
-			chip8.PC += 2
-		case 0xB000: // BNNN
-			// Jumps to the address NNN plus V0.
-			// PC=V0+NNN
-		case 0xC000: // CXNN
-			// Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255) and NN.
-			// Vx=rand()&NN
-		case 0xD000: // DXYN
-			// Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N+1 pixels
-			// Each row of 8 pixels is read as bit-coded starting from memory location I; I value does not change after the execution of this instruction
-			// As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that does not happen
-			// draw(Vx,Vy,N)
-
-			n := byte(chip8.Opcode & 0x000F)
-			x := chip8.V[(chip8.Opcode>>8)&0x000F]
-			y := chip8.V[(chip8.Opcode>>4)&0x000F]
-			chip8.V[0xF] = 0
-
-			for posY := y; posY < y+n; posY++ {
-				data := chip8.Memory[chip8.I]
-
-				for posX := x; posX < data; posX++ {
-						
-				}
-			}
-
-			chip8.PC += 2
-
-		case 0xE000:
-			switch chip8.Opcode & 0x00FF {
-			case 0x9E:
-				// Skips the next instruction if the key stored in VX is pressed. (Usually the next instruction is a jump to skip a code block)
-				// if(key()==Vx)
-			case 0xA1:
-				// Skips the next instruction if the key stored in VX is not pressed. (Usually the next instruction is a jump to skip a code block)
-				// if(key()!=Vx)
-			default:
-				panic(fmt.Sprintf("unknown opcode [0xE000]: 0x%X\n", chip8.Opcode))
-			}
-		case 0xF000:
-			switch chip8.Opcode & 0x00FF {
-			case 0x07:
-				// Sets VX to the value of the delay timer.
-				// Vx = get_delay()
-			case 0x0A:
-				// A key press is awaited, and then stored in VX. (Blocking Operation. All instruction halted until next key event)
-				// Vx = get_key()
-			case 0x15:
-				// Sets the delay timer to VX.
-				// delay_timer(Vx)
-			case 0x18:
-				// Sets the sound timer to VX.
-				// sound_timer(Vx)
-			case 0x1E:
-				// Adds VX to I. VF is not affected
-				// I +=Vx
-			case 0x29:
-				// Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by a 4x5 font.
-				// I=sprite_addr[Vx]
-			case 0x33:
-				// Stores the binary-coded decimal representation of VX, with the most
-				// significant of three digits at the address in I, the middle digit at I plus 1, and the
-				// least significant digit at I plus 2. (In other words, take the decimal
-				// representation of VX, place the hundreds digit in memory at location in I, the
-				// tens digit at location I+1, and the ones digit at location I+2.)
-				// set_BCD(Vx)
-				// *(I+0)=BCD(3)
-				// *(I+1)=BCD(2)
-				// *(I+2)=BCD(1)
-			case 0x55:
-				// Stores V0 to VX (including VX) in memory starting at address I.
-				// The offset from I is increased by 1 for each value written, but I itself is left unmodified
-				// reg_dump(Vx,&I)
-			case 0x65:
-				// Fills V0 to VX (including VX) with values from memory starting at address I
-				// The offset from I is increased by 1 for each value written, but I itself is left unmodified.
-				// reg_load(Vx,&I)
-			default:
-				panic(fmt.Sprintf("unknown opcode [0xF000]: 0x%X\n", chip8.Opcode))
-			}
-
-		default:
-			panic(fmt.Sprintf("unknown opcode: 0x%X\n", chip8.Opcode))
-		}
-
 	}
 }
