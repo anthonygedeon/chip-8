@@ -80,7 +80,7 @@ type Chip8 struct {
 	SP uint16
 
 	// Display: 64 x 32
-	Display [64*10][32*10]uint16
+	Display [64][32]byte
 
 	// HEX Keypad
 	Keypad [16]byte
@@ -136,7 +136,7 @@ func (chip8 *Chip8) Update() error {
 		case 0x0000:
 			// Clears the screen
 			// disp_clear()
-			chip8.Display = [64*10][32*10]uint16{}
+			chip8.Display = [64][32]byte{}
 			chip8.PC += 2
 		case 0x000E:
 			// Returns from a subroutine
@@ -304,16 +304,18 @@ func (chip8 *Chip8) Update() error {
 	return nil
 }
 
+
 func (g *Chip8) Draw(screen *ebiten.Image) {
 
-	var pixelImage = ebiten.NewImage(8, 8)
-	
+	var pixelImage = ebiten.NewImage(64, 32)
+
 	for row := 0; row < len(g.Display); row++ {
 		for col := 0; col < len(g.Display[row]); col++ {
 			var currentColor color.Color 
+
 			option := &ebiten.DrawImageOptions{}
 			option.GeoM.Translate(float64(row), float64(col))
-			option.GeoM.Scale(5, 7)
+			option.GeoM.Scale(float64(screen.Bounds().Dx()) / 64, float64(screen.Bounds().Dy()) / 32)
 			if g.Display[row][col] == 1 {
 				currentColor = color.White
 			} else {
@@ -322,7 +324,6 @@ func (g *Chip8) Draw(screen *ebiten.Image) {
 				
 			pixelImage.Fill(currentColor)
 			screen.DrawImage(pixelImage, option)
-			// screen.Set(row, col, currentColor)
 		}
 	}
 }
@@ -355,7 +356,7 @@ func (c *Chip8) Init() {
 	c.SP = 0
 
 	// clears the display
-	c.Display = [64*10][32*10]uint16{}
+	c.Display = [64][32]byte{}
 
 	// load font set
 	for i := 0; i < 80; i++ {
