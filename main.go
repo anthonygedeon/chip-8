@@ -234,10 +234,10 @@ func (chip8 *Chip8) Update() error {
 			data := chip8.Memory[chip8.I+uint16(posY)]
 			for posX := 0; posX < 8; posX++ {
 				if (data & (0x80 >> posX)) != 0 {
-					if chip8.Display[(int(x)+posX)*5][(int(y)+posY)*8] == 1 {
+					if chip8.Display[(int(x)+posX)][(int(y)+posY)] == 1 {
 						chip8.V[0xF] = 1
 					}
-					chip8.Display[(int(x)+posX)*5][(int(y)+posY)*8] ^= 1
+					chip8.Display[(int(x)+posX)][(int(y)+posY)] ^= 1
 				}
 			}
 		}
@@ -305,17 +305,24 @@ func (chip8 *Chip8) Update() error {
 }
 
 func (g *Chip8) Draw(screen *ebiten.Image) {
+
+	var pixelImage = ebiten.NewImage(8, 8)
+	
 	for row := 0; row < len(g.Display); row++ {
 		for col := 0; col < len(g.Display[row]); col++ {
 			var currentColor color.Color 
-
+			option := &ebiten.DrawImageOptions{}
+			option.GeoM.Translate(float64(row), float64(col))
+			option.GeoM.Scale(5, 7)
 			if g.Display[row][col] == 1 {
 				currentColor = color.White
 			} else {
 				currentColor = color.Black
 			}
-			
-			screen.Set(row, col, currentColor)
+				
+			pixelImage.Fill(currentColor)
+			screen.DrawImage(pixelImage, option)
+			// screen.Set(row, col, currentColor)
 		}
 	}
 }
