@@ -136,19 +136,20 @@ func main() {
 
 func (chip8 *Chip8) Update() error {
 
-	chip8.Opcode = (uint16(chip8.Memory[chip8.PC]) << 8) | uint16(chip8.Memory[chip8.PC+1])
+	chip8.Opcode = uint16(chip8.Memory[chip8.PC]) << 8 | uint16(chip8.Memory[chip8.PC+1])
+
 	switch chip8.Opcode & 0xF000 {
 	case 0x0000:
-		switch chip8.Opcode & 0x00F0 {
-		case 0x00E0:
+		switch chip8.Opcode & 0x000F {
+		case 0x0000:
 			// Clears the screen
 			// disp_clear()
-			// chip8.Display = [64][32]byte{}
-			//chip8.PC += 2
-		case 0x00EE:
+			chip8.Display = [64][32]byte{}
+			chip8.PC += 2
+		case 0x000E:
 			// Returns from a subroutine
-			chip8.PC = uint16(chip8.Stack[chip8.SP])
 			chip8.SP--
+			chip8.PC = uint16(chip8.Stack[chip8.SP])
 
 			chip8.PC += 2
 
