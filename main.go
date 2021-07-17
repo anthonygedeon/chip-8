@@ -71,12 +71,12 @@ type Chip8 struct {
 	// | Reserved for  |
 	// |  interpreter  |
 	// +---------------+= 0x000 (0) Start of Chip-8 RAM
-	Memory [4096]byte
+	Memory [4096]uint8
 	// 16 8-bit (one byte) general-purpose variable registers numbered
 	V [16]byte
 
 	// call subroutines/functions and return from them
-	Stack [16]byte
+	Stack [16]uint16
 
 	// Stack pointer
 	SP uint16
@@ -84,10 +84,16 @@ type Chip8 struct {
 	// Display: 64 x 32
 	Display [64][32]byte
 
-	// HEX Keypad
+	// Keypad is HEX based: 0x0-0xF
+	//  1  2  3  C
+	//  4  5  6  D
+	//  7  8  9  E
+	//  A  0  B  F
 	Keypad [16]byte
 
 	DelayTimer byte
+
+	SoundTimer byte
 }
 
 func main() {
@@ -151,12 +157,13 @@ func (chip8 *Chip8) Update() error {
 		}
 	case 0x1000: // 1NNN
 		// Jumps to address NNN
-		chip8.PC = chip8.Opcode & 0x0FFF
+		nnn := chip8.Opcode & 0x0FFF
+		chip8.PC = nnn
 	case 0x2000: // 2NNN
 		// Calls subroutine at NNN.
 		nnn := chip8.Opcode & 0x0FFF
+		chip8.Stack[chip8.SP] = uint16(chip8.PC)
 		chip8.SP++
-		chip8.Stack[chip8.SP] = byte(chip8.PC)
 		chip8.PC = nnn
 	case 0x3000: // 3XNN
 		// Skips the next instruction if VX equals NN. (Usually the next instruction is a jump to skip a code block)
@@ -195,9 +202,9 @@ func (chip8 *Chip8) Update() error {
 	case 0x6000: // 6XNN
 		// Sets VX to NN
 		// Vx = NN
-		v := chip8.Opcode >> 8 & 0x000F
+		x := chip8.Opcode >> 8 & 0x000F
 		nn := byte(chip8.Opcode & 0x00FF)
-		chip8.V[v] = nn
+		chip8.V[x] = nn
 
 		chip8.PC += 2
 	case 0x7000: // 7XNN
@@ -209,14 +216,14 @@ func (chip8 *Chip8) Update() error {
 		chip8.PC += 2
 	case 0x8000:
 		switch chip8.Opcode & 0x000F {
-		case 0x0:
+		case 0x0000:
 			// Sets VX to the value of VY.
 			// Vx=Vy
 			x := (chip8.Opcode >> 8) & 0x000F
 			y := (chip8.Opcode >> 4) & 0x000F
-			chip8.V[x] += byte(y)
+			chip8.V[x] += byte(chip8.V[y])
 			chip8.PC += 2
-		case 0x1:
+		case 0x0001:
 			// Sets VX to VX or VY. (Bitwise OR operation)
 			// Vx=Vx|Vy
 
@@ -226,7 +233,7 @@ func (chip8 *Chip8) Update() error {
 			chip8.V[x] = chip8.V[x] | chip8.V[y]
 
 			chip8.PC += 2
-		case 0x2:
+		case 0x0002:
 			// Sets VX to VX and VY. (Bitwise AND operation)
 			// Vx=Vx&Vy
 			x := (chip8.Opcode >> 8) & 0x000F
@@ -235,7 +242,7 @@ func (chip8 *Chip8) Update() error {
 			chip8.V[x] = chip8.V[x] & chip8.V[y]
 
 			chip8.PC += 2
-		case 0x3:
+		case 0x0003:
 			// Sets VX to VX xor VY.
 			// Vx=Vx^Vy
 			x := (chip8.Opcode >> 8) & 0x000F
@@ -244,7 +251,7 @@ func (chip8 *Chip8) Update() error {
 			chip8.V[x] = chip8.V[x] ^ chip8.V[y]
 
 			chip8.PC += 2
-		case 0x4:
+		case 0x0004:
 			// Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there is not.
 			// Vx += Vy
 			x := (chip8.Opcode >> 8) & 0x000F
@@ -259,7 +266,7 @@ func (chip8 *Chip8) Update() error {
 			}
 
 			chip8.PC += 2
-		case 0x5:
+		case 0x0005:
 			// VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there is not.
 			// Vx -= Vy
 
@@ -276,11 +283,19 @@ func (chip8 *Chip8) Update() error {
 
 			chip8.PC += 2
 
-		case 0x6:
+		case 0x0006:
 			// Stores the least significant bit of VX in VF and then shifts VX to the right by 1.
 			// Vx>>=1
 
-		case 0x7:
+			x := (chip8.Opcode >> 8) & 0x000F
+			y := (chip8.Opcode >> 4) & 0x000F
+
+			chip8.V[0xF] = chip8.V[y] >> 1
+			chip8.V[x] = chip8.V[y] >> 1
+
+			chip8.PC += 2
+
+		case 0x0007:
 			// Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there is not
 			// Vx=Vy-Vx
 
@@ -297,9 +312,17 @@ func (chip8 *Chip8) Update() error {
 
 			chip8.PC += 2
 
-		case 0xE:
+		case 0x000E:
 			// Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
 			// Vx<<=1
+
+			x := (chip8.Opcode >> 8) & 0x000F
+			y := (chip8.Opcode >> 4) & 0x000F
+
+			chip8.V[0xF] = chip8.V[y] << 1
+			chip8.V[x] <<= 1
+
+			chip8.PC += 2
 
 		default:
 			panic(fmt.Sprintf("unknown opcode [0x8000]: 0x%X\n", chip8.Opcode))
@@ -363,12 +386,11 @@ func (chip8 *Chip8) Update() error {
 
 	case 0xE000:
 		switch chip8.Opcode & 0x00FF {
-		case 0x9E:
+		case 0x009E:
 			// Skips the next instruction if the key stored in VX is pressed. (Usually the next instruction is a jump to skip a code block)
 			// if(key()==Vx)
-			
-			chip8.PC += 2
-		case 0xA1:
+
+		case 0x00A1:
 			// Skips the next instruction if the key stored in VX is not pressed. (Usually the next instruction is a jump to skip a code block)
 			// if(key()!=Vx)
 		default:
@@ -376,29 +398,48 @@ func (chip8 *Chip8) Update() error {
 		}
 	case 0xF000:
 		switch chip8.Opcode & 0x00FF {
-		case 0x07:
+		case 0x0007:
 			// Sets VX to the value of the delay timer.
 			// Vx = get_delay()
-		case 0x0A:
+
+			x := chip8.V[(chip8.Opcode>>8)&0x000F]
+			chip8.V[x] = chip8.DelayTimer
+
+			chip8.PC += 2
+
+		case 0x000A:
 			// A key press is awaited, and then stored in VX. (Blocking Operation. All instruction halted until next key event)
 			// Vx = get_key()
-		case 0x15:
+
+		case 0x0015:
 			// Sets the delay timer to VX.
 			// delay_timer(Vx)
-		case 0x18:
+			x := chip8.V[(chip8.Opcode>>8)&0x000F]
+			chip8.DelayTimer = chip8.V[x]
+
+			chip8.PC += 2
+		case 0x0018:
 			// Sets the sound timer to VX.
 			// sound_timer(Vx)
-		case 0x1E:
+			x := chip8.V[(chip8.Opcode>>8)&0x000F]
+			chip8.SoundTimer = chip8.V[x]
+
+			chip8.PC += 2
+		case 0x001E:
 			// Adds VX to I. VF is not affected
 			// I +=Vx
 			x := chip8.V[(chip8.Opcode>>8)&0x000F]
 			chip8.I += uint16(x)
 
 			chip8.PC += 2
-		case 0x29:
+		case 0x0029:
 			// Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by a 4x5 font.
 			// I=sprite_addr[Vx]
-		case 0x33:
+			x := chip8.V[(chip8.Opcode>>8)&0x000F]
+			chip8.I = uint16(x)
+
+			chip8.PC += 2
+		case 0x0033:
 			// Stores the binary-coded decimal representation of VX, with the most
 			// significant of three digits at the address in I, the middle digit at I plus 1, and the
 			// least significant digit at I plus 2. (In other words, take the decimal
@@ -408,14 +449,39 @@ func (chip8 *Chip8) Update() error {
 			// *(I+0)=BCD(3)
 			// *(I+1)=BCD(2)
 			// *(I+2)=BCD(1)
-		case 0x55:
+			x := (chip8.Opcode>>8)&0x000F
+
+			chip8.Memory[chip8.I] = chip8.V[x] / 100
+			chip8.Memory[chip8.I+1] = (chip8.V[x] / 10) % 10
+			chip8.Memory[chip8.I+2] = chip8.V[x] % 10
+
+			chip8.PC += 2
+		case 0x0055:
 			// Stores V0 to VX (including VX) in memory starting at address I.
 			// The offset from I is increased by 1 for each value written, but I itself is left unmodified
 			// reg_dump(Vx,&I)
-		case 0x65:
+			x := (chip8.Opcode>>8)&0x000F
+
+			for i := uint16(0); i < x; i++ {
+				chip8.Memory[i+chip8.I] = chip8.V[i]
+			}
+
+			chip8.I += uint16(x) + 1
+
+			chip8.PC += 2
+		case 0x0065:
 			// Fills V0 to VX (including VX) with values from memory starting at address I
 			// The offset from I is increased by 1 for each value written, but I itself is left unmodified.
 			// reg_load(Vx,&I)
+			x := (chip8.Opcode>>8)&0x000F
+
+			for i := 0; uint16(i) < x; i++ {
+				chip8.V[i] = chip8.Memory[i+int(chip8.I)]
+			}
+
+			chip8.I += uint16(x + 1)
+
+			chip8.PC += 2
 		default:
 			panic(fmt.Sprintf("unknown opcode [0xF000]: 0x%X\n", chip8.Opcode))
 		}
@@ -483,8 +549,23 @@ func (c *Chip8) Init() {
 	c.I = 0
 	c.SP = 0
 
+	// Clear Register
+	for x := 0; x < 16; x++ {
+		c.V[x] = 0
+	}
+
 	// clears the display
 	c.Display = [64][32]byte{}
+
+	// clear stack 
+	for i := 0; i < 16; i++ {
+		c.Stack[i] = 0
+	}
+
+	// clear memory
+	for i := 0; i < 4096; i++ {
+		c.Memory[i] = 0
+	}
 
 	// load font set
 	for i := 0; i < 80; i++ {
