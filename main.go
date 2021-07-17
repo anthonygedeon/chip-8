@@ -96,10 +96,10 @@ func main() {
 
 	chip8.Init()
 
-	data := ReadROM("roms/IBMLOGO.ch8") // Testing purposes
+	data := ReadROM("roms/test_opcode.ch8") // Testing purposes
 
-	for i := range data {
-		chip8.Memory[512+i] = data[i]
+	for i, d := range data {
+		chip8.Memory[512+i] = d
 	}
 
 	ebiten.SetWindowSize(screenWidth*2, screenHeight*2)
@@ -131,18 +131,21 @@ func main() {
 func (chip8 *Chip8) Update() error {
 
 	chip8.Opcode = (uint16(chip8.Memory[chip8.PC]) << 8) | uint16(chip8.Memory[chip8.PC+1])
-
 	switch chip8.Opcode & 0xF000 {
 	case 0x0000:
-		switch chip8.Opcode & 0x000F {
-		case 0x0000:
+		switch chip8.Opcode & 0x00F0 {
+		case 0x00E0:
 			// Clears the screen
 			// disp_clear()
-			chip8.Display = [64][32]byte{}
-			chip8.PC += 2
-		case 0x000E:
+			// chip8.Display = [64][32]byte{}
+			//chip8.PC += 2
+		case 0x00EE:
 			// Returns from a subroutine
-			// return;
+			chip8.PC = uint16(chip8.Stack[chip8.SP])
+			chip8.SP--
+
+			chip8.PC += 2
+
 		default:
 			panic(fmt.Sprintf("unknown opcode [0x0000]: 0x%X\n", chip8.Opcode))
 		}
@@ -151,21 +154,51 @@ func (chip8 *Chip8) Update() error {
 		chip8.PC = chip8.Opcode & 0x0FFF
 	case 0x2000: // 2NNN
 		// Calls subroutine at NNN.
+		nnn := chip8.Opcode & 0x0FFF
+		chip8.SP++
+		chip8.Stack[chip8.SP] = byte(chip8.PC)
+		chip8.PC = nnn
 	case 0x3000: // 3XNN
 		// Skips the next instruction if VX equals NN. (Usually the next instruction is a jump to skip a code block)
 		// if(Vx==NN)
+		nn := chip8.Opcode & 0x00FF
+		x := chip8.Opcode >> 8 & 0x000F
+
+		if uint16(chip8.V[x]) == nn {
+			chip8.PC += 4
+		} else {
+			chip8.PC += 2
+		}
+
 	case 0x4000: // 4XNN
 		// Skips the next instruction if VX does not equal NN. (Usually the next instruction is a jump to skip a code block)
 		// if(Vx!=NN)
+		nn := chip8.Opcode & 0x00FF
+		x := chip8.Opcode >> 8 & 0x000F
+		if uint16(chip8.V[x]) != nn {
+			chip8.PC += 4
+		} else {
+			chip8.PC += 2
+		}
 	case 0x5000: // 5XY0
 		// Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to skip a code block)
 		// if(Vx==Vy)
+		x := (chip8.Opcode >> 8) & 0x000F
+		y := (chip8.Opcode >> 4) & 0x000F
+
+		if chip8.V[x] == chip8.V[y] {
+			chip8.PC += 4
+		} else {
+			chip8.PC += 2
+		}
+
 	case 0x6000: // 6XNN
 		// Sets VX to NN
 		// Vx = NN
 		v := chip8.Opcode >> 8 & 0x000F
 		nn := byte(chip8.Opcode & 0x00FF)
 		chip8.V[v] = nn
+
 		chip8.PC += 2
 	case 0x7000: // 7XNN
 		// Adds NN to VX. (Carry flag is not changed)
@@ -179,48 +212,130 @@ func (chip8 *Chip8) Update() error {
 		case 0x0:
 			// Sets VX to the value of VY.
 			// Vx=Vy
+			x := (chip8.Opcode >> 8) & 0x000F
+			y := (chip8.Opcode >> 4) & 0x000F
+			chip8.V[x] += byte(y)
+			chip8.PC += 2
 		case 0x1:
 			// Sets VX to VX or VY. (Bitwise OR operation)
 			// Vx=Vx|Vy
+
+			x := (chip8.Opcode >> 8) & 0x000F
+			y := (chip8.Opcode >> 4) & 0x000F
+
+			chip8.V[x] = chip8.V[x] | chip8.V[y]
+
+			chip8.PC += 2
 		case 0x2:
 			// Sets VX to VX and VY. (Bitwise AND operation)
 			// Vx=Vx&Vy
+			x := (chip8.Opcode >> 8) & 0x000F
+			y := (chip8.Opcode >> 4) & 0x000F
+
+			chip8.V[x] = chip8.V[x] & chip8.V[y]
+
+			chip8.PC += 2
 		case 0x3:
 			// Sets VX to VX xor VY.
 			// Vx=Vx^Vy
+			x := (chip8.Opcode >> 8) & 0x000F
+			y := (chip8.Opcode >> 4) & 0x000F
+
+			chip8.V[x] = chip8.V[x] ^ chip8.V[y]
+
+			chip8.PC += 2
 		case 0x4:
 			// Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there is not.
 			// Vx += Vy
+			x := (chip8.Opcode >> 8) & 0x000F
+			y := (chip8.Opcode >> 4) & 0x000F
+
+			chip8.V[x] += chip8.V[y]
+
+			if chip8.V[x] > 255 {
+				chip8.V[0xF] = 1
+			} else {
+				chip8.V[0xF] = 0
+			}
+
+			chip8.PC += 2
 		case 0x5:
 			// VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there is not.
 			// Vx -= Vy
+
+			x := (chip8.Opcode >> 8) & 0x000F
+			y := (chip8.Opcode >> 4) & 0x000F
+
+			if chip8.V[x] > chip8.V[y] {
+				chip8.V[0xF] = 1
+			} else {
+				chip8.V[0xF] = 0
+			}
+
+			chip8.V[x] -= chip8.V[y]
+
+			chip8.PC += 2
+
 		case 0x6:
 			// Stores the least significant bit of VX in VF and then shifts VX to the right by 1.
 			// Vx>>=1
+
 		case 0x7:
 			// Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there is not
 			// Vx=Vy-Vx
+
+			x := (chip8.Opcode >> 8) & 0x000F
+			y := (chip8.Opcode >> 4) & 0x000F
+
+			if chip8.V[y] > chip8.V[x] {
+				chip8.V[0xF] = 1
+			} else {
+				chip8.V[0xF] = 0
+			}
+
+			chip8.V[x] -= chip8.V[y]
+
+			chip8.PC += 2
+
 		case 0xE:
 			// Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
 			// Vx<<=1
+
 		default:
 			panic(fmt.Sprintf("unknown opcode [0x8000]: 0x%X\n", chip8.Opcode))
 		}
 	case 0x9000: // 9XY0
 		// Skips the next instruction if VX does not equal VY. (Usually the next instruction is a jump to skip a code block)
 		// if(Vx!=Vy)
+		x := (chip8.Opcode >> 8) & 0x000F
+		y := (chip8.Opcode >> 4) & 0x000F
+
+		if chip8.V[x] != chip8.V[y] {
+			chip8.PC += 4
+		} else {
+			chip8.PC += 2
+		}
+
 	case 0xA000: // ANNN
 		// Sets I to the address NNN.
 		// I = NNN
 		nnn := chip8.Opcode & 0x0FFF
 		chip8.I = nnn
+
 		chip8.PC += 2
 	case 0xB000: // BNNN
 		// Jumps to the address NNN plus V0.
 		// PC=V0+NNN
+		nnn := chip8.Opcode & 0x0FFF
+		chip8.PC = uint16(chip8.V[0]) + uint16(nnn)
 	case 0xC000: // CXNN
 		// Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255) and NN.
 		// Vx=rand()&NN
+		x := (chip8.Opcode >> 8) & 0x000F
+		nn := byte(chip8.Opcode & 0x00FF)
+		chip8.V[x] = RandomByte() & nn
+
+		chip8.PC += 2
 	case 0xD000: // DXYN
 		// Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N+1 pixels
 		// Each row of 8 pixels is read as bit-coded starting from memory location I; I value does not change after the execution of this instruction
@@ -236,10 +351,10 @@ func (chip8 *Chip8) Update() error {
 			data := chip8.Memory[chip8.I+uint16(posY)]
 			for posX := 0; posX < 8; posX++ {
 				if (data & (0x80 >> posX)) != 0 {
-					if chip8.Display[(int(x)+posX)][(int(y)+posY)] == 1 {
+					if chip8.Display[(int(x) + posX)][(int(y)+posY)] == 1 {
 						chip8.V[0xF] = 1
 					}
-					chip8.Display[(int(x)+posX)][(int(y)+posY)] ^= 1
+					chip8.Display[(int(x) + posX)][(int(y) + posY)] ^= 1
 				}
 			}
 		}
@@ -251,6 +366,8 @@ func (chip8 *Chip8) Update() error {
 		case 0x9E:
 			// Skips the next instruction if the key stored in VX is pressed. (Usually the next instruction is a jump to skip a code block)
 			// if(key()==Vx)
+			
+			chip8.PC += 2
 		case 0xA1:
 			// Skips the next instruction if the key stored in VX is not pressed. (Usually the next instruction is a jump to skip a code block)
 			// if(key()!=Vx)
@@ -274,6 +391,10 @@ func (chip8 *Chip8) Update() error {
 		case 0x1E:
 			// Adds VX to I. VF is not affected
 			// I +=Vx
+			x := chip8.V[(chip8.Opcode>>8)&0x000F]
+			chip8.I += uint16(x)
+
+			chip8.PC += 2
 		case 0x29:
 			// Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by a 4x5 font.
 			// I=sprite_addr[Vx]
@@ -306,24 +427,23 @@ func (chip8 *Chip8) Update() error {
 	return nil
 }
 
-
 func (g *Chip8) Draw(screen *ebiten.Image) {
 
 	var pixelImage = ebiten.NewImage(64, 32)
 
 	for row := 0; row < len(g.Display); row++ {
 		for col := 0; col < len(g.Display[row]); col++ {
-			var currentColor color.Color 
+			var currentColor color.Color
 
 			option := &ebiten.DrawImageOptions{}
 			option.GeoM.Translate(float64(row), float64(col))
-			option.GeoM.Scale(float64(screen.Bounds().Dx()) / 64, float64(screen.Bounds().Dy()) / 32)
+			option.GeoM.Scale(float64(screen.Bounds().Dx())/64, float64(screen.Bounds().Dy())/32)
 			if g.Display[row][col] == 1 {
 				currentColor = color.White
 			} else {
 				currentColor = color.Black
 			}
-				
+
 			pixelImage.Fill(currentColor)
 			screen.DrawImage(pixelImage, option)
 		}
