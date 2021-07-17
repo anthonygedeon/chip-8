@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"image/color"
 	"io/ioutil"
+	"math/rand"
 	"os"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -330,6 +332,12 @@ func (g *Chip8) Draw(screen *ebiten.Image) {
 
 func (g *Chip8) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return screenWidth, screenHeight
+}
+
+func RandomByte() byte {
+	rand.Seed(time.Now().UnixNano())
+
+	return byte(rand.Intn(255))
 }
 
 func ReadROM(filename string) []byte {
