@@ -137,7 +137,7 @@ func main() {
 func (chip8 *Chip8) Update() error {
 
 	chip8.Opcode = uint16(chip8.Memory[chip8.PC])<<8 | uint16(chip8.Memory[chip8.PC+1])
-
+	
 	switch chip8.Opcode & 0xF000 {
 	case 0x0000:
 		switch chip8.Opcode & 0x000F {
@@ -258,7 +258,7 @@ func (chip8 *Chip8) Update() error {
 			x := (chip8.Opcode >> 8) & 0x000F
 			y := (chip8.Opcode >> 4) & 0x000F
 
-			if chip8.V[y] > 0xFF-chip8.V[x] {
+			if chip8.V[y] > (0xFF-chip8.V[x]) {
 				chip8.V[0xF] = 1
 			} else {
 				chip8.V[0xF] = 0
@@ -289,10 +289,14 @@ func (chip8 *Chip8) Update() error {
 			// Vx>>=1
 
 			x := (chip8.Opcode >> 8) & 0x000F
-			y := (chip8.Opcode >> 4) & 0x000F
 
-			chip8.V[0xF] = chip8.V[y] >> 1
-			chip8.V[x] = chip8.V[y] >> 1
+			if (chip8.V[x] & 0x01) == 0x01 {
+				chip8.V[0xF] = 1
+			} else {
+				chip8.V[0xF] = 0
+			}
+
+			chip8.V[x] /= 2
 
 			chip8.PC += 2
 
@@ -318,10 +322,14 @@ func (chip8 *Chip8) Update() error {
 			// Vx<<=1
 
 			x := (chip8.Opcode >> 8) & 0x000F
-			y := (chip8.Opcode >> 4) & 0x000F
 
-			chip8.V[0xF] = chip8.V[y] << 1
-			chip8.V[x] <<= 1
+			if (chip8.V[x] & 0x80) == 0x80 {
+				chip8.V[0xF] = 1
+			} else {
+				chip8.V[0xF] = 0
+			}
+
+			chip8.V[x] *= 2
 
 			chip8.PC += 2
 
@@ -417,7 +425,7 @@ func (chip8 *Chip8) Update() error {
 			// Sets VX to the value of the delay timer.
 			// Vx = get_delay()
 
-			x := chip8.V[(chip8.Opcode>>8)&0x000F]
+			x := (chip8.Opcode>>8)&0x000F
 			chip8.V[x] = chip8.DelayTimer
 
 			chip8.PC += 2
@@ -433,7 +441,7 @@ func (chip8 *Chip8) Update() error {
 		case 0x0015:
 			// Sets the delay timer to VX.
 			// delay_timer(Vx)
-			x := chip8.V[(chip8.Opcode>>8)&0x000F]
+			x := (chip8.Opcode>>8)&0x000F
 			chip8.DelayTimer = chip8.V[x]
 
 			chip8.PC += 2
@@ -455,7 +463,7 @@ func (chip8 *Chip8) Update() error {
 			// Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by a 4x5 font.
 			// I=sprite_addr[Vx]
 			x := chip8.Opcode >> 8 & 0x000F
-			chip8.I = uint16(chip8.V[x])
+			chip8.I = uint16(chip8.V[x]) * uint16(0x5)
 
 			chip8.PC += 2
 		case 0x0033:
@@ -485,8 +493,6 @@ func (chip8 *Chip8) Update() error {
 				chip8.Memory[i+chip8.I] = chip8.V[i]
 			}
 
-			chip8.I += uint16(x) + 1
-
 			chip8.PC += 2
 		case 0x0065:
 			// Fills V0 to VX (including VX) with values from memory starting at address I
@@ -494,11 +500,9 @@ func (chip8 *Chip8) Update() error {
 			// reg_load(Vx,&I)
 			x := chip8.Opcode >> 8 & 0x000F
 
-			for i := 0; uint16(i) < x; i++ {
+			for i := 0; uint16(i) <= x; i++ {
 				chip8.V[i] = chip8.Memory[i+int(chip8.I)]
 			}
-
-			chip8.I += uint16(x + 1)
 
 			chip8.PC += 2
 		default:
@@ -542,7 +546,7 @@ func (g *Chip8) Layout(outsideWidth, outsideHeight int) (int, int) {
 func RandomByte() byte {
 	rand.Seed(time.Now().UnixNano())
 
-	return byte(rand.Intn(255))
+	return byte(rand.Intn(0xFF))
 }
 
 func ReadROM(filename string) []byte {
