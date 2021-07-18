@@ -102,7 +102,7 @@ func main() {
 
 	chip8.Init()
 
-	data := ReadROM("roms/test_opcode.ch8") // Testing purposes
+	data := ReadROM("roms/TETRIS") // Testing purposes
 
 	for i, d := range data {
 		chip8.Memory[512+i] = d
@@ -137,7 +137,7 @@ func main() {
 func (chip8 *Chip8) Update() error {
 
 	chip8.Opcode = uint16(chip8.Memory[chip8.PC])<<8 | uint16(chip8.Memory[chip8.PC+1])
-	
+	fmt.Printf("opcode 0x%X\n", chip8.Opcode)
 	switch chip8.Opcode & 0xF000 {
 	case 0x0000:
 		switch chip8.Opcode & 0x000F {
@@ -150,7 +150,7 @@ func (chip8 *Chip8) Update() error {
 			// Returns from a subroutine
 			chip8.SP--
 			chip8.PC = uint16(chip8.Stack[chip8.SP])
-
+			
 			chip8.PC += 2
 
 		default:
@@ -448,7 +448,7 @@ func (chip8 *Chip8) Update() error {
 		case 0x0018:
 			// Sets the sound timer to VX.
 			// sound_timer(Vx)
-			x := chip8.V[(chip8.Opcode>>8)&0x000F]
+			x := (chip8.Opcode>>8)&0x000F
 			chip8.SoundTimer = chip8.V[x]
 
 			chip8.PC += 2
@@ -513,6 +513,14 @@ func (chip8 *Chip8) Update() error {
 		panic(fmt.Sprintf("unknown opcode: 0x%X\n", chip8.Opcode))
 	}
 
+	if chip8.DelayTimer > 0 {
+		chip8.DelayTimer--
+	}
+
+	if chip8.SoundTimer > 0 {
+		chip8.SoundTimer--
+	} 
+
 	return nil
 }
 
@@ -571,6 +579,8 @@ func (c *Chip8) Init() {
 	c.PC = 0x200
 	c.I = 0
 	c.SP = 0
+	c.DelayTimer = 0
+	c.SoundTimer = 0
 
 	// Clear Register
 	for x := 0; x < 16; x++ {
