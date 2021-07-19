@@ -38,6 +38,7 @@ var chip8FontSet = [80]byte{
 
 // Chip8
 type Chip8 struct {
+	// each opcode in ch8 program
 	Opcode uint16
 
 	// point at locations in memory
@@ -72,6 +73,7 @@ type Chip8 struct {
 	// |  interpreter  |
 	// +---------------+= 0x000 (0) Start of Chip-8 RAM
 	Memory [4096]uint8
+
 	// 16 8-bit (one byte) general-purpose variable registers numbered
 	V [16]byte
 
@@ -85,14 +87,16 @@ type Chip8 struct {
 	Display [64][32]byte
 
 	// Keypad is HEX based: 0x0-0xF
-	//  1  2  3  C
-	//  4  5  6  D
-	//  7  8  9  E
-	//  A  0  B  F
+	//  1  2  3  4
+	//  Q  W  E  R
+	//  A  S  D  F
+	//  Z  X  C  V
 	Keypad [16]byte
 
+	// DelayTimer handles the animation of sprites
 	DelayTimer byte
 
+	// SoundTimer calls beep noise
 	SoundTimer byte
 }
 
@@ -102,7 +106,7 @@ func main() {
 
 	chip8.Init()
 
-	data := ReadROM("roms/TETRIS") // Testing purposes
+	data := ReadROM("roms/INVADERS") // Testing purposes
 
 	for i, d := range data {
 		chip8.Memory[512+i] = d
@@ -135,9 +139,77 @@ func main() {
 }
 
 func (chip8 *Chip8) Update() error {
+	x := chip8.Opcode >> 8 & 0x000F
+	
+	chip8.Keypad[x] = 0
+
+	if ebiten.IsKeyPressed(ebiten.KeyDigit1) {
+		chip8.Keypad[x] = 0x0
+	} 
+
+	if ebiten.IsKeyPressed(ebiten.KeyDigit2) {
+		chip8.Keypad[x] = 0x1
+	} 
+
+	if ebiten.IsKeyPressed(ebiten.KeyDigit3) {
+		chip8.Keypad[x] = 0x2
+	} 
+
+	if ebiten.IsKeyPressed(ebiten.KeyDigit4) {
+		chip8.Keypad[x] = 0x3
+	} 
+
+	if ebiten.IsKeyPressed(ebiten.KeyQ) {
+		chip8.Keypad[x] = 0x4
+	} 
+
+	if ebiten.IsKeyPressed(ebiten.KeyW) {
+		chip8.Keypad[x] = 0x5
+	} 
+
+	if ebiten.IsKeyPressed(ebiten.KeyE) {
+		chip8.Keypad[x] = 0x6
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyR) {
+		chip8.Keypad[x] = 0x7
+	} 
+
+	if ebiten.IsKeyPressed(ebiten.KeyA) {
+		chip8.Keypad[x] = 0x8
+	} 
+
+	if ebiten.IsKeyPressed(ebiten.KeyS) {
+		chip8.Keypad[x] = 0x9
+	} 
+
+	if ebiten.IsKeyPressed(ebiten.KeyD) {
+		chip8.Keypad[x] = 0xA
+	} 
+
+	if ebiten.IsKeyPressed(ebiten.KeyF) {
+		chip8.Keypad[x] = 0xB
+	} 
+
+	if ebiten.IsKeyPressed(ebiten.KeyZ) {
+		chip8.Keypad[x] = 0xC
+	} 
+
+	if ebiten.IsKeyPressed(ebiten.KeyX) {
+		chip8.Keypad[x] = 0xD
+	} 
+
+	if ebiten.IsKeyPressed(ebiten.KeyC) {
+		chip8.Keypad[x] = 0xE
+	} 
+
+	if ebiten.IsKeyPressed(ebiten.KeyV) {
+		chip8.Keypad[x] = 0xF
+	} 
+
+	fmt.Println(chip8.Keypad)
 
 	chip8.Opcode = uint16(chip8.Memory[chip8.PC])<<8 | uint16(chip8.Memory[chip8.PC+1])
-	fmt.Printf("opcode 0x%X\n", chip8.Opcode)
 	switch chip8.Opcode & 0xF000 {
 	case 0x0000:
 		switch chip8.Opcode & 0x000F {
@@ -150,7 +222,7 @@ func (chip8 *Chip8) Update() error {
 			// Returns from a subroutine
 			chip8.SP--
 			chip8.PC = uint16(chip8.Stack[chip8.SP])
-			
+
 			chip8.PC += 2
 
 		default:
@@ -258,7 +330,7 @@ func (chip8 *Chip8) Update() error {
 			x := (chip8.Opcode >> 8) & 0x000F
 			y := (chip8.Opcode >> 4) & 0x000F
 
-			if chip8.V[y] > (0xFF-chip8.V[x]) {
+			if chip8.V[y] > (0xFF - chip8.V[x]) {
 				chip8.V[0xF] = 1
 			} else {
 				chip8.V[0xF] = 0
@@ -399,6 +471,7 @@ func (chip8 *Chip8) Update() error {
 			// Skips the next instruction if the key stored in VX is pressed. (Usually the next instruction is a jump to skip a code block)
 			// if(key()==Vx)
 			x := (chip8.Opcode >> 8) & 0x000F
+
 			if chip8.Keypad[x] == chip8.V[x] {
 				chip8.PC += 2
 			}
@@ -410,6 +483,7 @@ func (chip8 *Chip8) Update() error {
 			// if(key()!=Vx)
 
 			x := (chip8.Opcode >> 8) & 0x000F
+
 			if chip8.Keypad[x] != chip8.V[x] {
 				chip8.PC += 2
 			}
@@ -425,7 +499,7 @@ func (chip8 *Chip8) Update() error {
 			// Sets VX to the value of the delay timer.
 			// Vx = get_delay()
 
-			x := (chip8.Opcode>>8)&0x000F
+			x := (chip8.Opcode >> 8) & 0x000F
 			chip8.V[x] = chip8.DelayTimer
 
 			chip8.PC += 2
@@ -438,17 +512,18 @@ func (chip8 *Chip8) Update() error {
 
 			chip8.V[x] = chip8.Keypad[x]
 
+			chip8.PC += 2
 		case 0x0015:
 			// Sets the delay timer to VX.
 			// delay_timer(Vx)
-			x := (chip8.Opcode>>8)&0x000F
+			x := (chip8.Opcode >> 8) & 0x000F
 			chip8.DelayTimer = chip8.V[x]
 
 			chip8.PC += 2
 		case 0x0018:
 			// Sets the sound timer to VX.
 			// sound_timer(Vx)
-			x := (chip8.Opcode>>8)&0x000F
+			x := (chip8.Opcode >> 8) & 0x000F
 			chip8.SoundTimer = chip8.V[x]
 
 			chip8.PC += 2
@@ -519,7 +594,7 @@ func (chip8 *Chip8) Update() error {
 
 	if chip8.SoundTimer > 0 {
 		chip8.SoundTimer--
-	} 
+	}
 
 	return nil
 }
@@ -604,6 +679,7 @@ func (c *Chip8) Init() {
 	for i := 0; i < 80; i++ {
 		c.Memory[i] = chip8FontSet[i]
 	}
+
 }
 
 func (c Chip8) Disassemble(program byte, pc uint16) {
