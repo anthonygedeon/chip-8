@@ -1,4 +1,4 @@
-<h1 align="center">CHIP 8 [WIP]</h1>
+<h1 align="center">CHIP 8</h1>
 <p align="center">
   <a href="https://golang.org/dl" target="_blank">
     <img alt="Using go version 1.16" src="https://img.shields.io/badge/go-1.16-9cf.svg" />
@@ -17,6 +17,7 @@ Current sources:
 - [post by Matthew Mikolay](http://mattmik.com/files/chip8/mastering/chip8.html)
 
 ## Installation
+You must have golang installed on your machine
 ```
 go install github.com/anthonygedeon/chip8
 ```
@@ -24,7 +25,7 @@ go install github.com/anthonygedeon/chip8
 ## Usage
 Default clock speed: 60Hz
 ```sh
-chip8 run roms/pong.ch8
+chip8 run tetris
 ```
 
 ### Version
