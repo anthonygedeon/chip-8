@@ -332,27 +332,26 @@ func (cpu *CPU) addXY() {
 
 // subXY
 func (cpu *CPU) subXY() {
-
+	cpu.pc += 2
 }
 
 // subYX
 func (cpu *CPU) subYX() {
-
+	cpu.pc += 2
 }
 
 // shr
 func (cpu *CPU) shr() {
-
-}
+	cpu.pc += 2
+}	
 
 // addYX
 func (cpu *CPU) addYX() {
-
 }
 
-// shl'
+// shl
 func (cpu *CPU) shl() {
-
+	cpu.pc += 2
 }
 
 // skipIfPressed
@@ -410,14 +409,20 @@ func (cpu *CPU) loadBX(x uint16) {
 
 // loadRegIX
 func (cpu *CPU) loadRegIX() {
-	// for {
+	for _, v := range cpu.v {
+		cpu.ram.RAM[cpu.i] = v
+	}
 
-	// }
+	cpu.pc += 2
 }
 
 // loadRegx
 func (cpu *CPU) loadRegX() {
+	for i := 0; i < len(cpu.v); i++ {
+		cpu.v[cpu.i] = cpu.ram.RAM[i]
+	}
 
+	cpu.pc += 2
 }
 
 // loadVK
