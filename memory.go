@@ -30,7 +30,7 @@ const offset = 512 // start of programs
 // A Memory contains the ram of the program
 type Memory struct {
 	// 4KB of ram
-	RAM [4096]uint16
+	RAM [4096]byte
 }
 
 // Read
@@ -63,6 +63,6 @@ func (mem *Memory) LoadProgram(filename string) {
 	}
 
 	for i, data := range bytes {
-		mem.RAM[i+offset] = uint16(data)
+		mem.RAM[i+offset] = byte(data)
 	}
 }
