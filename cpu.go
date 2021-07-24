@@ -5,6 +5,8 @@ package main
 import (
 	"log"
 	"math/rand"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // A CPU represents the internal of a cpu for the chip-8.
@@ -14,6 +16,9 @@ type CPU struct {
 
 	// 4KB of memory
 	ram Memory
+
+	// qwerty keyboard
+	keypad KeyPad
 
 	// executes the current opcode
 	pc uint16
@@ -30,6 +35,7 @@ type CPU struct {
 	// store addresses that the interpreter should return from a subroutine
 	stack [16]uint16
 
+	// 64x32-pixel monochrome display
 	display Display
 
 	// active whenever the delay timer register (DT) is non-zero
@@ -43,7 +49,8 @@ type CPU struct {
 
 // NewCPU
 func NewCPU() *CPU {
-	return &CPU{
+
+	cpu := &CPU{
 		ram:        Memory{},
 		pc:         0x200,
 		sp:         0,
@@ -53,16 +60,42 @@ func NewCPU() *CPU {
 		delayTimer: 0,
 		soundTimer: 0,
 	}
+
+	// load character bytes into memory
+	for i := 0; i < len(FontSet); i++ {
+		cpu.ram.RAM[i] = FontSet[i]
+	}
+
+	return cpu
+}
+
+// EmulateCycle
+func (cpu *CPU) EmulateCycle() {
+	cpu.fetchOpcode()
+	cpu.executeOpcode()
+	cpu.updateTimers()
+}
+
+// updateTimers decrements timers unless value is less than 0
+func (cpu *CPU) updateTimers() {
+
+	if cpu.delayTimer > 0 {
+		cpu.delayTimer--
+	}
+
+	if cpu.soundTimer > 0 {
+		cpu.soundTimer--
+	}
 }
 
 // FetchOpcode fetches the current instruction based on the pc.
 //
-func (cpu *CPU) FetchOpcode() {
+func (cpu *CPU) fetchOpcode() {
 	cpu.opcode = (uint16(cpu.ram.RAM[cpu.pc]) << 8) | uint16(cpu.ram.RAM[cpu.pc+1])
 }
 
 // ExecuteOpcode decodes the opcode and execute its function.
-func (cpu *CPU) ExecuteOpcode() {
+func (cpu *CPU) executeOpcode() {
 
 	var (
 		// A 4-bit value, the lower 4 bits of the high byte of the instruction
@@ -80,6 +113,73 @@ func (cpu *CPU) ExecuteOpcode() {
 		// A 12-bit value, the lowest 12 bits of the instruction
 		nnn = cpu.opcode & 0x0FFF
 	)
+
+	// TODO: abstract key presses into methods
+	cpu.keypad.Keys[x] = 0
+
+	if ebiten.IsKeyPressed(ebiten.KeyDigit1) {
+		cpu.keypad.Keys[x] = 0x0
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyDigit2) {
+		cpu.keypad.Keys[x] = 0x1
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyDigit3) {
+		cpu.keypad.Keys[x] = 0x2
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyDigit4) {
+		cpu.keypad.Keys[x] = 0x3
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyQ) {
+		cpu.keypad.Keys[x] = 0x4
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyW) {
+		cpu.keypad.Keys[x] = 0x5
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyE) {
+		cpu.keypad.Keys[x] = 0x6
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyR) {
+		cpu.keypad.Keys[x] = 0x7
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyA) {
+		cpu.keypad.Keys[x] = 0x8
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyS) {
+		cpu.keypad.Keys[x] = 0x9
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyD) {
+		cpu.keypad.Keys[x] = 0xA
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyF) {
+		cpu.keypad.Keys[x] = 0xB
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyZ) {
+		cpu.keypad.Keys[x] = 0xC
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyX) {
+		cpu.keypad.Keys[x] = 0xD
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyC) {
+		cpu.keypad.Keys[x] = 0xE
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyV) {
+		cpu.keypad.Keys[x] = 0xF
+	}
 
 	switch cpu.opcode & 0xF000 {
 	case 0x0000:
@@ -143,11 +243,11 @@ func (cpu *CPU) ExecuteOpcode() {
 		cpu.draw(uint16(nibble), x, y)
 
 	case 0xE000:
-		switch cpu.opcode & 0x00F0 {
+		switch cpu.opcode & 0x00FF {
 		case 0x009E:
-			cpu.skipIfPressed()
+			cpu.skipIfPressed(x)
 		case 0x00A1:
-			cpu.skipIfNotPressed()
+			cpu.skipIfNotPressed(x)
 		default:
 			cpu.unknownOpcode()
 		}
@@ -157,7 +257,7 @@ func (cpu *CPU) ExecuteOpcode() {
 		case 0x0007:
 			cpu.loadXDT(x)
 		case 0x000A:
-			cpu.loadVK()
+			cpu.loadVK(x)
 		case 0x0015:
 			cpu.loadDTX(x)
 		case 0x0018:
@@ -179,15 +279,15 @@ func (cpu *CPU) ExecuteOpcode() {
 	default:
 		cpu.unknownOpcode()
 	}
-
 }
 
-// unknownOpcode
+// unknownOpcode interrupts cpu cycle when opcode is unidentifiable
 func (cpu *CPU) unknownOpcode() {
 	log.Fatalf("unknown opcode [%#X]: 0x%X\n", cpu.opcode&0xF000, cpu.opcode)
 }
 
-// cls
+// cls 00E0 - CLS
+// Clear the display.
 func (cpu *CPU) cls() {
 	cpu.display.gfx = [64][32]byte{}
 	cpu.pc += 2
@@ -215,23 +315,32 @@ func (cpu *CPU) jump(address uint16) {
 	cpu.pc = address
 }
 
-// jumpV0
+// jumpV0 Bnnn - JP V0, addr
+// Jump to location nnn + V0.
+// The program counter is set to nnn plus the value of V0.
 func (cpu *CPU) jumpV0(address uint16, v0 uint16) {
 	cpu.pc = address + v0
 }
 
-// loadRnd
+// loadRnd Cxkk - RND Vx, byte
+// Set Vx = random byte AND kk.
+// The interpreter generates a random number from 0 to 255, which is then ANDed with the value kk. The results are stored in Vx. See instruction 8xy2 for more information on AND.
 func (cpu *CPU) loadRnd(x uint16, nn uint16) {
 	cpu.v[x] = byte(rand.Intn(255)) & byte(nn)
+	cpu.pc += 2
 }
 
-// loadI
+// loadI Annn - LD I, addr
+// Set I = nnn.
+// The value of register I is set to nnn.
 func (cpu *CPU) loadI(address uint16) {
 	cpu.i = address
 	cpu.pc += 2
 }
 
-// skipIfNotXY
+// skipIfNotXY 9xy0 - SNE Vx, Vy
+// Skip next instruction if Vx != Vy.
+// The values of Vx and Vy are compared, and if they are not equal, the program counter is increased by 2.
 func (cpu *CPU) skipIfNotXY(x uint16, y uint16) {
 	if cpu.v[x] != cpu.v[y] {
 		cpu.pc += 4
@@ -240,28 +349,35 @@ func (cpu *CPU) skipIfNotXY(x uint16, y uint16) {
 	}
 }
 
-// draw
+// draw Dxyn - DRW Vx, Vy, nibble (n)
+// Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
 func (cpu *CPU) draw(n uint16, x uint16, y uint16) {
 	x = uint16(cpu.v[x])
 	y = uint16(cpu.v[y])
 	cpu.v[0xF] = 0
 
-	for posY := 0; uint16(posY) < n; posY++ {
-		data := cpu.ram.RAM[cpu.i+uint16(posY)]
-		for posX := 0; posX < 8; posX++ {
-			if (data & (0x80 >> posX)) != 0 {
-				if cpu.display.gfx[(int(x) + posX)][(int(y)+posY)] == 1 {
+	for row := uint16(0); row < n; row++ {
+		pixel := cpu.ram.RAM[cpu.i+row]
+		for col := uint16(0); col < 8; col++ {
+			var (
+				xIdx = x + col
+				yIdx = y + row
+			)
+
+			if pixel&(0x80>>col) != 0 {
+				if cpu.display.gfx[xIdx][yIdx] == 1 {
 					cpu.v[0xF] = 1
 				}
-				cpu.display.gfx[(int(x) + posX)][(int(y) + posY)] ^= 1
+				cpu.display.gfx[xIdx][yIdx] ^= 1
 			}
+
 		}
 	}
-
 	cpu.pc += 2
 }
 
-// skipIf
+// skipIf Skip next instruction if Vx = nn.
+// The interpreter compares register Vx to nn, and if they are equal, increments the program counter by 2.
 func (cpu *CPU) skipIf(x uint16, nn uint16) {
 	if uint16(cpu.v[x]) == nn {
 		cpu.pc += 4
@@ -270,7 +386,8 @@ func (cpu *CPU) skipIf(x uint16, nn uint16) {
 	}
 }
 
-// skipIfNot
+// skipIfNot Skip next instruction if Vx != nn.
+// The interpreter compares register Vx to nn, and if they are not equal, increments the program counter by 2.
 func (cpu *CPU) skipIfNot(x uint16, nn uint16) {
 	if uint16(cpu.v[x]) != nn {
 		cpu.pc += 4
@@ -279,7 +396,9 @@ func (cpu *CPU) skipIfNot(x uint16, nn uint16) {
 	}
 }
 
-// skipIfXY
+// skipIfXY 5xy0 - SE Vx, Vy
+// Skip next instruction if Vx = Vy.
+// The interpreter compares register Vx to register Vy, and if they are equal, increments the program counter by 2.
 func (cpu *CPU) skipIfXY(x uint16, y uint16) {
 	if cpu.v[x] == cpu.v[y] {
 		cpu.pc += 4
@@ -288,7 +407,9 @@ func (cpu *CPU) skipIfXY(x uint16, y uint16) {
 	}
 }
 
-// loadX
+// loadX 6xkk - LD Vx, byte
+// Set Vx = kk.
+// The interpreter puts the value kk into register Vx.
 func (cpu *CPU) loadX(x uint16, nn uint16) {
 	cpu.v[x] = byte(nn)
 	cpu.pc += 2
@@ -302,25 +423,33 @@ func (cpu *CPU) addX(x uint16, nn uint16) {
 	cpu.pc += 2
 }
 
-// and
+// and 8xy2 - AND Vx, Vy
+// Set Vx = Vx AND Vy.
+// Performs a bitwise AND on the values of Vx and Vy, then stores the result in Vx. A bitwise AND compares the corrseponding bits from two values, and if both bits are 1, then the same bit in the result is also 1. Otherwise, it is 0.
 func (cpu *CPU) and(x uint16, y uint16) {
 	cpu.v[x] &= cpu.v[y]
 	cpu.pc += 2
 }
 
-// xor
+// xor 8xy3 - XOR Vx, Vy
+// Set Vx = Vx XOR Vy.
+// Performs a bitwise exclusive OR on the values of Vx and Vy, then stores the result in Vx. An exclusive OR compares the corrseponding bits from two values, and if the bits are not both the same, then the corresponding bit in the result is set to 1. Otherwise, it is 0.
 func (cpu *CPU) xor(x uint16, y uint16) {
 	cpu.v[x] ^= cpu.v[y]
 	cpu.pc += 2
 }
 
-// or
+// or 8xy1 - OR Vx, Vy
+// Set Vx = Vx OR Vy.
+// Performs a bitwise OR on the values of Vx and Vy, then stores the result in Vx. A bitwise OR compares the corrseponding bits from two values, and if either bit is 1, then the same bit in the result is also 1. Otherwise, it is 0.
 func (cpu *CPU) or(x uint16, y uint16) {
 	cpu.v[x] |= cpu.v[y]
 	cpu.pc += 2
 }
 
-// loadXY
+// loadXY 8xy0 - LD Vx, Vy
+// Set Vx = Vy.
+// Stores the value of register Vy in register Vx.
 func (cpu *CPU) loadXY(x uint16, y uint16) {
 	cpu.v[x] = cpu.v[y]
 	cpu.pc += 2
@@ -335,115 +464,125 @@ func (cpu *CPU) addXY(x uint16, y uint16) {
 	} else {
 		cpu.v[0xF] = 0
 	}
-
 	cpu.v[x] += cpu.v[y]
-
 	cpu.pc += 2
 }
 
-// subXY
+// subXY 8xy5 - SUB Vx, Vy
+// Set Vx = Vx - Vy, set VF = NOT borrow.
+// If Vx > Vy, then VF is set to 1, otherwise 0. Then Vy is subtracted from Vx, and the results stored in Vx.
 func (cpu *CPU) subXY(x uint16, y uint16) {
 	if cpu.v[x] > cpu.v[y] {
 		cpu.v[0xF] = 1
 	} else {
 		cpu.v[0xF] = 0
 	}
-
 	cpu.v[x] -= cpu.v[y]
-
 	cpu.pc += 2
 }
 
-// subYX
+// subYX 8xy7 - SUBN Vx, Vy
+// Set Vx = Vy - Vx, set VF = NOT borrow.
+// If Vy > Vx, then VF is set to 1, otherwise 0. Then Vx is subtracted from Vy, and the results stored in Vx.
 func (cpu *CPU) subYX(x uint16, y uint16) {
 	if cpu.v[y] > cpu.v[x] {
 		cpu.v[0xF] = 1
 	} else {
 		cpu.v[0xF] = 0
 	}
-
 	cpu.v[x] -= cpu.v[y]
-
 	cpu.pc += 2
 }
 
-// shr
+// shr 8xy6 - SHR Vx {, Vy}
+// Set Vx = Vx SHR 1.
+// If the least-significant bit of Vx is 1, then VF is set to 1, otherwise 0. Then Vx is divided by 2.
 func (cpu *CPU) shr(x uint16) {
 	if (cpu.v[x] & 0x1) == 1 {
 		cpu.v[0xF] = 1
 	} else {
 		cpu.v[0xF] = 0
 	}
-
 	cpu.v[x] /= 2
-
 	cpu.pc += 2
 }
 
-// addYX
-func (cpu *CPU) addYX() {
-
-}
-
-// shl
+// shl 8xyE - SHL Vx {, Vy}
+// Set Vx = Vx SHL 1.
+// If the most-significant bit of Vx is 1, then VF is set to 1, otherwise to 0. Then Vx is multiplied by 2.
 func (cpu *CPU) shl(x uint16) {
 	if (cpu.v[x] & 0x80) == 1 {
 		cpu.v[0xF] = 1
 	} else {
 		cpu.v[0xF] = 0
 	}
-
 	cpu.v[x] *= 2
-
 	cpu.pc += 2
 }
 
-// skipIfPressed
-func (cpu *CPU) skipIfPressed() {
-
+// skipIfPressed Ex9E - SKP Vx
+// Skip next instruction if key with the value of Vx is pressed.
+// Checks the keyboard, and if the key corresponding to the value of Vx is currently in the down position, PC is increased by 2.
+func (cpu *CPU) skipIfPressed(x uint16) {
+	if cpu.keypad.Keys[byte(x)] == cpu.v[x] {
+		cpu.pc += 2
+	}
+	cpu.pc += 2
 }
 
-// skipIfNotPressed
-func (cpu *CPU) skipIfNotPressed() {
-
+// skipIfNotPressed ExA1 - SKNP Vx
+// Skip next instruction if key with the value of Vx is not pressed.
+// Checks the keyboard, and if the key corresponding to the value of Vx is currently in the up position, PC is increased by 2.
+func (cpu *CPU) skipIfNotPressed(x uint16) {
+	if cpu.keypad.Keys[byte(x)] != cpu.v[x] {
+		cpu.pc += 2
+	}
+	cpu.pc += 2
 }
 
-// loadXDT
+// loadXDT Fx07 - LD Vx, DT
+// Set Vx = delay timer value.
+//The value of DT is placed into Vx.
 func (cpu *CPU) loadXDT(x uint16) {
 	cpu.v[x] = cpu.delayTimer
 	cpu.pc += 2
 }
 
-// loadDTX
+// loadDTX Fx15 - LD DT, Vx
+// Set delay timer = Vx.
+// DT is set equal to the value of Vx.
 func (cpu *CPU) loadDTX(x uint16) {
 	cpu.delayTimer = byte(cpu.v[x])
 	cpu.pc += 2
 }
 
-// loadSTX
+// loadSTX Fx18 - LD ST, Vx
+// Set sound timer = Vx.
+// ST is set equal to the value of Vx.
 func (cpu *CPU) loadSTX(x uint16) {
 	cpu.soundTimer = byte(cpu.v[x])
 	cpu.pc += 2
 }
 
-// loadIX
-func (cpu *CPU) loadIX() {
-
-}
-
-// addIX
+// addIX Fx1E - ADD I, Vx
+// Set I = I + Vx.
+// The values of I and Vx are added, and the results are stored in I.
 func (cpu *CPU) addIX(x uint16) {
 	cpu.i += uint16(cpu.v[x])
 	cpu.pc += 2
 }
 
-// loadF
+// loadF Fx29 - LD F, Vx
+// Set I = location of sprite for digit Vx.
+// The value of I is set to the location for the hexadecimal sprite corresponding to the value of Vx. See section 2.4, Display, for more information on the Chip-8 hexadecimal font.
 func (cpu *CPU) loadF(x uint16) {
-	cpu.i = uint16(cpu.v[x])
+	cpu.i = uint16(cpu.v[x]) * 5
 	cpu.pc += 2
 }
 
-// loadBX
+// loadBX Fx33 - LD B, Vx
+// Store BCD representation of Vx in memory locations I, I+1, and I+2.
+// The interpreter takes the decimal value of Vx, and places the hundreds digit in memory at location in I, the tens digit at location I+1, and the ones digit at location I+2.
 func (cpu *CPU) loadBX(x uint16) {
 	cpu.ram.RAM[cpu.i] = byte(cpu.v[x] / 100)          // get hundreds digit
 	cpu.ram.RAM[cpu.i+1] = byte((cpu.v[x] % 100) / 10) // get tens digit
@@ -451,25 +590,30 @@ func (cpu *CPU) loadBX(x uint16) {
 	cpu.pc += 2
 }
 
-// loadRegIX
+// loadRegIX Fx55 - LD [I], Vx
+// Store registers V0 through Vx in memory starting at location I.
+// The interpreter copies the values of registers V0 through Vx into memory, starting at the address in I.
 func (cpu *CPU) loadRegIX(x uint16) {
 	for i := uint16(0); i <= x; i++ {
 		cpu.ram.RAM[cpu.i+i] = cpu.v[i]
 	}
-
 	cpu.pc += 2
 }
 
-// loadRegx
+// loadRegx Fx65 - LD Vx, [I]
+// Read registers V0 through Vx from memory starting at location I.
+// The interpreter reads values from memory starting at location I into registers V0 through Vx.
 func (cpu *CPU) loadRegX(x uint16) {
 	for i := uint16(0); i <= x; i++ {
 		cpu.v[i] = cpu.ram.RAM[cpu.i+i]
 	}
-
 	cpu.pc += 2
 }
 
-// loadVK
-func (cpu *CPU) loadVK() {
-
+// loadVK Fx0A - LD Vx, K
+// Wait for a key press, store the value of the key in Vx.
+// All execution stops until a key is pressed, then the value of that key is stored in Vx.
+func (cpu *CPU) loadVK(x uint16) {
+	cpu.v[x] = cpu.keypad.Keys[x]
+	cpu.pc += 2
 }
