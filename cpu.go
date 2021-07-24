@@ -21,8 +21,8 @@ type CPU struct {
 	// pointer for stack register
 	sp uint16
 
-	// general purpose register
-	v [16]uint16
+	// 16 8-bit (one byte) general-purpose variable registers numbered
+	v [16]byte
 
 	// register for storing memory addresses
 	i uint16
@@ -47,7 +47,7 @@ func NewCPU() *CPU {
 		ram:        Memory{},
 		pc:         0x200,
 		sp:         0,
-		v:          [16]uint16{},
+		v:          [16]byte{},
 		i:          0,
 		stack:      [16]uint16{},
 		delayTimer: 0,
@@ -118,15 +118,15 @@ func (cpu *CPU) ExecuteOpcode() {
 		case 0x0003:
 			cpu.xor(x, y)
 		case 0x0004:
-			cpu.addXY()
+			cpu.addXY(x, y)
 		case 0x0005:
-			cpu.subXY()
+			cpu.subXY(x, y)
 		case 0x0006:
-			cpu.shr()
+			cpu.shr(x)
 		case 0x0007:
-			cpu.subYX()
+			cpu.subYX(x, y)
 		case 0x000E:
-			cpu.shl()
+			cpu.shl(x)
 		default:
 			cpu.unknownOpcode()
 		}
@@ -136,7 +136,7 @@ func (cpu *CPU) ExecuteOpcode() {
 	case 0xA000:
 		cpu.loadI(nnn)
 	case 0xB000:
-		cpu.jumpV0(nnn, cpu.v[0])
+		cpu.jumpV0(nnn, uint16(cpu.v[0]))
 	case 0xC000:
 		cpu.loadRnd(x, nn)
 	case 0xD000:
@@ -153,7 +153,7 @@ func (cpu *CPU) ExecuteOpcode() {
 		}
 
 	case 0xF000:
-		switch cpu.opcode & 0x00F0 {
+		switch cpu.opcode & 0x00FF {
 		case 0x0007:
 			cpu.loadXDT(x)
 		case 0x000A:
@@ -169,9 +169,9 @@ func (cpu *CPU) ExecuteOpcode() {
 		case 0x0033:
 			cpu.loadBX(x)
 		case 0x0055:
-			cpu.loadRegIX()
+			cpu.loadRegIX(x)
 		case 0x0065:
-			cpu.loadRegX()
+			cpu.loadRegX(x)
 		default:
 			cpu.unknownOpcode()
 		}
@@ -184,7 +184,7 @@ func (cpu *CPU) ExecuteOpcode() {
 
 // unknownOpcode
 func (cpu *CPU) unknownOpcode() {
-	log.Fatalf("unknown opcode [0x%X000]: 0x%X\n", cpu.opcode&0xF000, cpu.opcode)
+	log.Fatalf("unknown opcode [%#X]: 0x%X\n", cpu.opcode&0xF000, cpu.opcode)
 }
 
 // cls
@@ -222,7 +222,7 @@ func (cpu *CPU) jumpV0(address uint16, v0 uint16) {
 
 // loadRnd
 func (cpu *CPU) loadRnd(x uint16, nn uint16) {
-	cpu.v[x] = uint16(rand.Intn(255)) & nn
+	cpu.v[x] = byte(rand.Intn(255)) & byte(nn)
 }
 
 // loadI
@@ -242,8 +242,8 @@ func (cpu *CPU) skipIfNotXY(x uint16, y uint16) {
 
 // draw
 func (cpu *CPU) draw(n uint16, x uint16, y uint16) {
-	x = cpu.v[x]
-	y = cpu.v[y]
+	x = uint16(cpu.v[x])
+	y = uint16(cpu.v[y])
 	cpu.v[0xF] = 0
 
 	for posY := 0; uint16(posY) < n; posY++ {
@@ -263,7 +263,7 @@ func (cpu *CPU) draw(n uint16, x uint16, y uint16) {
 
 // skipIf
 func (cpu *CPU) skipIf(x uint16, nn uint16) {
-	if cpu.v[x] == nn {
+	if uint16(cpu.v[x]) == nn {
 		cpu.pc += 4
 	} else {
 		cpu.pc += 2
@@ -272,7 +272,7 @@ func (cpu *CPU) skipIf(x uint16, nn uint16) {
 
 // skipIfNot
 func (cpu *CPU) skipIfNot(x uint16, nn uint16) {
-	if cpu.v[x] != nn {
+	if uint16(cpu.v[x]) != nn {
 		cpu.pc += 4
 	} else {
 		cpu.pc += 2
@@ -290,13 +290,15 @@ func (cpu *CPU) skipIfXY(x uint16, y uint16) {
 
 // loadX
 func (cpu *CPU) loadX(x uint16, nn uint16) {
-	cpu.v[x] = nn
+	cpu.v[x] = byte(nn)
 	cpu.pc += 2
 }
 
-// addX
+// addX 7xkk - ADD Vx, byte
+// Set Vx = Vx + kk.
+// Adds the value kk to the value of register Vx, then stores the result in Vx.
 func (cpu *CPU) addX(x uint16, nn uint16) {
-	cpu.v[x] += nn
+	cpu.v[x] += byte(nn)
 	cpu.pc += 2
 }
 
@@ -324,33 +326,75 @@ func (cpu *CPU) loadXY(x uint16, y uint16) {
 	cpu.pc += 2
 }
 
-// addXY
-func (cpu *CPU) addXY() {
-	
+// addXY Set Vx = Vx + Vy, set VF = carry.
+// The values of Vx and Vy are added together. If the result is greater than 8 bits (i.e., > 255,) VF is set to 1, otherwise 0. Only the lowest 8 bits of the result are kept, and stored in Vx.
+func (cpu *CPU) addXY(x uint16, y uint16) {
+
+	if (cpu.v[x] + cpu.v[y]) > 255 {
+		cpu.v[0xF] = 1
+	} else {
+		cpu.v[0xF] = 0
+	}
+
+	cpu.v[x] += cpu.v[y]
+
 	cpu.pc += 2
 }
 
 // subXY
-func (cpu *CPU) subXY() {
+func (cpu *CPU) subXY(x uint16, y uint16) {
+	if cpu.v[x] > cpu.v[y] {
+		cpu.v[0xF] = 1
+	} else {
+		cpu.v[0xF] = 0
+	}
+
+	cpu.v[x] -= cpu.v[y]
+
 	cpu.pc += 2
 }
 
 // subYX
-func (cpu *CPU) subYX() {
+func (cpu *CPU) subYX(x uint16, y uint16) {
+	if cpu.v[y] > cpu.v[x] {
+		cpu.v[0xF] = 1
+	} else {
+		cpu.v[0xF] = 0
+	}
+
+	cpu.v[x] -= cpu.v[y]
+
 	cpu.pc += 2
 }
 
 // shr
-func (cpu *CPU) shr() {
+func (cpu *CPU) shr(x uint16) {
+	if (cpu.v[x] & 0x1) == 1 {
+		cpu.v[0xF] = 1
+	} else {
+		cpu.v[0xF] = 0
+	}
+
+	cpu.v[x] /= 2
+
 	cpu.pc += 2
-}	
+}
 
 // addYX
 func (cpu *CPU) addYX() {
+
 }
 
 // shl
-func (cpu *CPU) shl() {
+func (cpu *CPU) shl(x uint16) {
+	if (cpu.v[x] & 0x80) == 1 {
+		cpu.v[0xF] = 1
+	} else {
+		cpu.v[0xF] = 0
+	}
+
+	cpu.v[x] *= 2
+
 	cpu.pc += 2
 }
 
@@ -366,7 +410,7 @@ func (cpu *CPU) skipIfNotPressed() {
 
 // loadXDT
 func (cpu *CPU) loadXDT(x uint16) {
-	cpu.v[x] = uint16(cpu.delayTimer)
+	cpu.v[x] = cpu.delayTimer
 	cpu.pc += 2
 }
 
@@ -389,37 +433,37 @@ func (cpu *CPU) loadIX() {
 
 // addIX
 func (cpu *CPU) addIX(x uint16) {
-	cpu.i += cpu.v[x]
+	cpu.i += uint16(cpu.v[x])
 	cpu.pc += 2
 }
 
 // loadF
 func (cpu *CPU) loadF(x uint16) {
-	cpu.i = cpu.v[x]
+	cpu.i = uint16(cpu.v[x])
 	cpu.pc += 2
 }
 
 // loadBX
 func (cpu *CPU) loadBX(x uint16) {
-	cpu.ram.RAM[cpu.i] = cpu.v[x] / 100          // get hundreds digit
-	cpu.ram.RAM[cpu.i+1] = (cpu.v[x] % 100) / 10 // get tens digit
-	cpu.ram.RAM[cpu.i+2] = cpu.v[x] % 10         // get ones digit
+	cpu.ram.RAM[cpu.i] = byte(cpu.v[x] / 100)          // get hundreds digit
+	cpu.ram.RAM[cpu.i+1] = byte((cpu.v[x] % 100) / 10) // get tens digit
+	cpu.ram.RAM[cpu.i+2] = byte(cpu.v[x] % 10)         // get ones digit
 	cpu.pc += 2
 }
 
 // loadRegIX
-func (cpu *CPU) loadRegIX() {
-	for _, v := range cpu.v {
-		cpu.ram.RAM[cpu.i] = v
+func (cpu *CPU) loadRegIX(x uint16) {
+	for i := uint16(0); i <= x; i++ {
+		cpu.ram.RAM[cpu.i+i] = cpu.v[i]
 	}
 
 	cpu.pc += 2
 }
 
 // loadRegx
-func (cpu *CPU) loadRegX() {
-	for i := 0; i < len(cpu.v); i++ {
-		cpu.v[cpu.i] = cpu.ram.RAM[i]
+func (cpu *CPU) loadRegX(x uint16) {
+	for i := uint16(0); i <= x; i++ {
+		cpu.v[i] = cpu.ram.RAM[cpu.i+i]
 	}
 
 	cpu.pc += 2
