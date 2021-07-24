@@ -6,7 +6,11 @@ import (
 	"os"
 )
 
-var fontSet = [80]byte{
+// FontSet sprites representing the hexadecimal digits 0 through F.
+// These sprites are 5 bytes long, or 8x5 pixels.
+// The data should be stored in the interpreter area of Chip-8 memory (0x000 to 0x1FF).
+// Below is a listing of each character's bytes, in binary and hexadecimal
+var FontSet = [80]byte{
 	0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
 	0x20, 0x60, 0x20, 0x20, 0x70, // 1
 	0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
@@ -25,7 +29,8 @@ var fontSet = [80]byte{
 	0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 }
 
-const offset = 512 // start of programs
+// start of programs
+const offset = 512
 
 // A Memory contains the ram of the program
 type Memory struct {
