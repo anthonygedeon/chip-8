@@ -1,4 +1,4 @@
-<h1 align="center">CHIP 8 [WIP]</h1>
+<h1 align="center">CHIP 8</h1>
 <p align="center">
   <a href="https://golang.org/dl" target="_blank">
     <img alt="Using go version 1.16" src="https://img.shields.io/badge/go-1.16-9cf.svg" />
@@ -24,7 +24,12 @@ go install github.com/anthonygedeon/chip8
 ## Usage
 Default clock speed: 60Hz
 ```sh
-chip8 run roms/pong.ch8
+chip8 run `path/to/rom`
+```
+
+### Disassembly
+```sh
+chip8 -d `path/to/rom`
 ```
 
 ### Version
@@ -36,6 +41,16 @@ chip8 version
 ```sh
 chip8 help
 ```
+
+### Screenshots
+
+![Pong 2](./docs/screenshots/pong2.png)
+![Connect4](./docs/screenshots/connect4.png)
+![TicTac](./docs/screenshots/tictac.png)
+![Ibm Logo](./docs/screenshots/ibmlogo.png)
+![Hidden](./docs/screenshots/hidden.png)
+![Invaders](./docs/screenshots/invaders.png)
+
 
 ### Support Me
 Give a ⭐ if this project was helpful in any way!
