@@ -289,7 +289,7 @@ func (cpu *CPU) unknownOpcode() {
 // cls 00E0 - CLS
 // Clear the display.
 func (cpu *CPU) cls() {
-	cpu.display.gfx = [64][32]byte{}
+	cpu.display.Clear()
 	cpu.pc += 2
 }
 
