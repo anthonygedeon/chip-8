@@ -9,6 +9,8 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+const version = "0.2.0"
+
 const (
 	screenWidth  = 320
 	screenHeight = 240
@@ -25,7 +27,7 @@ func main() {
 	app := &cli.App{
 		Name:    "chip8",
 		Usage:   "chip8 [command] [flag]...",
-		Version: "0.1.0",
+		Version: version,
 
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
