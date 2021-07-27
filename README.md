@@ -25,7 +25,12 @@ go install github.com/anthonygedeon/chip8
 ## Usage
 Default clock speed: 60Hz
 ```sh
-chip8 run tetris
+chip8 run `path/to/rom`
+```
+
+### Disassembly
+```sh
+chip8 -d `path/to/rom`
 ```
 
 ### Version
@@ -37,6 +42,16 @@ chip8 version
 ```sh
 chip8 help
 ```
+
+### Screenshots
+
+![Pong 2](./docs/screenshots/pong2.png)
+![Connect4](./docs/screenshots/connect4.png)
+![TicTac](./docs/screenshots/tictac.png)
+![Ibm Logo](./docs/screenshots/ibmlogo.png)
+![Hidden](./docs/screenshots/hidden.png)
+![Invaders](./docs/screenshots/invaders.png)
+
 
 ### Support Me
 Give a ⭐ if this project was helpful in any way!

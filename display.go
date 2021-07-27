@@ -10,6 +10,10 @@ type Display struct {
 	gfx [64][32]byte
 }
 
+func (d *Display) Clear() {
+	d.gfx = [64][32]byte{}
+}
+
 func (d *Display) DrawSprite(screen *ebiten.Image) {
 	var pixelImage = ebiten.NewImage(64, 32)
 
