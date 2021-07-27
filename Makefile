@@ -6,3 +6,6 @@ clean:
 
 lint:
 	go vet ./...
+
+test:
+	go test
