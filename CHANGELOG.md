@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2021-07-26
+
+### Added
+
+- all opcodes are implemented
+- majority of roms are playable
+- i/o
+- cli 
+- disassembler
+
 ## [0.1.2] - 2021-05-23
 
 ### Added

@@ -14,10 +14,17 @@ impl MemoryMap {
         match fs::read("roms/IBMLOGO") {
             Ok(bytes) => {
                 let start = 512;
-                let end = start + bytes.len();
-                let bytes: Vec<u16> = bytes.into_iter().map(|opcode| opcode as u16).collect();
+                let bytes: Vec<u16> = bytes
+                    .chunks_exact(2)
+                    .into_iter()
+                    .map(|op| u16::from_ne_bytes([op[0], op[1]]))
+                    .collect();
+
                 let bytes = bytes.as_slice();
-                self.ram[start..end].copy_from_slice(&bytes);
+                for (i, opcode) in bytes.iter().enumerate() {
+                    self.ram[i+start] = *opcode;
+                }
+
             }
 
             Err(_) => {
@@ -60,9 +67,13 @@ impl Cpu {
 
    fn fetch(&mut self) {
         self.mem.load_rom();
-        let pc = self.mem.ram[((self.pc & 0xFFFF) >> 8) as usize];
+        let opcode = self.mem.ram[self.pc as usize];
+        let pc = (opcode &0xFFFF) >> 8;
+        println!("{:x?}", pc);
+        
+        match opcode {
 
-        println!("{:?}", pc);
+        }
    } 
 
 }
@@ -70,5 +81,4 @@ impl Cpu {
 fn main() {
     let mut cpu = Cpu::new();
     cpu.fetch();
-    println!("{:?}", cpu.mem.ram);
 }
