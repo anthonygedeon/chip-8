@@ -1,10 +1,27 @@
-use std::fs;
+extern crate sdl2;
+
+use sdl2::pixels;
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+use sdl2::pixels::{Color, PixelFormatEnum};
+
+use std::time::Duration;
+use std::{mem, fs};
+
 
 const MAX_THRESHOLD: usize = 4096;
+
+type Display = [u8; 2048];
 
 #[derive(Debug)]
 pub struct MemoryMap {
     ram: [u16; MAX_THRESHOLD],
+}
+
+pub struct Pixel {
+    x: i32, 
+    y: i32,
+    color: Color 
 }
 
 impl MemoryMap {
@@ -39,6 +56,8 @@ pub struct Cpu {
     stack: [u16; 15],
 
     mem: MemoryMap,
+    gfx: Display, 
+    pixel: Pixel, 
 }
 
 impl Cpu {
@@ -54,6 +73,12 @@ impl Cpu {
             mem: MemoryMap {
                 ram: [0; MAX_THRESHOLD],
             },
+            gfx: [0; 2048], 
+            pixel: Pixel {
+                x: 0, 
+                y: 0,
+                color: Color::RGB(255, 255, 255)
+            }
         }
     }
 
@@ -74,10 +99,8 @@ impl Cpu {
 
            0x00E0 >> 8 we need to shift it 8 bits to the right to get rid of the right most byte
         */
-        loop {
             // println!("{:?}", self.pc);
-            let opcode =
-                (self.mem.ram[self.pc as usize] << 8) | (self.mem.ram[(self.pc + 1) as usize]);
+            let opcode = (self.mem.ram[self.pc as usize]<<8)|(self.mem.ram[(self.pc+1) as usize]);
 
             // println!("opcode: {:x?} pc: {:?}", opcode&0xF000,  self.pc);
             //println!("{:x?}", opcode);
@@ -95,37 +118,38 @@ impl Cpu {
                         //}
                         //
                         _ => {}
-                    }
+                    } 
                 }
 
-                0x1000 => {
+               0x1000 => {
                     let nnn = opcode & 0x0FFF;
                     println!("JP {}", nnn);
                     self.pc = nnn;
                 }
 
-                // 0x2000 => {
-                //      let nnn = opcode & 0x0FFF;
-                //      self.sp += 1;
-                //      self.stack[self.sp as usize] = self.pc;
-                //      self.pc = nnn;
-                //      println!("CALL {:x}", nnn);
-                // }
+               // 0x2000 => {
+               //      let nnn = opcode & 0x0FFF;
+               //      self.sp += 1;
+               //      self.stack[self.sp as usize] = self.pc;
+               //      self.pc = nnn;
+               //      println!("CALL {:x}", nnn);
+               // }
 
-                // 0x3000 => {
-                //     println!("SE Vx, byte");
-                //     self.pc += 2;
-                // }
+               // 0x3000 => {
+               //     println!("SE Vx, byte");
+               //     self.pc += 2;
+               // }
 
-                // 0x4000 => {
-                //     println!("SNE Vx, byte");
-                //     self.pc += 2;
-                // }
+               // 0x4000 => {
+               //     println!("SNE Vx, byte");
+               //     self.pc += 2;
+               // }
 
-                // 0x5000 => {
-                //     println!("SE Vx, Vy");
-                //     self.pc += 2;
-                // }
+               // 0x5000 => {
+               //     println!("SE Vx, Vy");
+               //     self.pc += 2;
+               // }
+
                 0x6000 => {
                     let x = (opcode & 0x0F00) >> 8;
                     let nn = opcode & 0x00FF;
@@ -137,13 +161,15 @@ impl Cpu {
                 0x7000 => {
                     let x = (opcode & 0x0F00) >> 8;
                     let nn = opcode & 0x00FF;
-                    self.v[x as usize] = (x + nn) as u8;
+                    self.v[x as usize] = (x + nn) as u8; 
                     println!("ADD Vx, byte");
                     self.pc += 2;
                 }
 
                 0x8000 => match opcode & 0x000F {
-                    0x1 => {}
+                    0x1 => {
+
+                    }
 
                     0x2 => {}
 
@@ -176,7 +202,16 @@ impl Cpu {
                 0xC000 => {}
 
                 0xD000 => {
-                    println!("DRW Vx, Vy, nibble");
+                    let x = self.v[((opcode & 0x0F00) >> 8) as usize];
+                    let y = self.v[((opcode & 0x00FF) >> 4) as usize];
+                    let pixels = self.mem.ram[self.i as usize];
+                    
+                    self.pixel.x = x as i32;
+                    self.pixel.y = y as i32;
+                    // println!("DRW V{}, V{}, {:x?}", x, y,  pixels);
+                    
+                    self.pc += 2;
+                     
                 }
 
                 0xE000 => match opcode {
@@ -211,11 +246,56 @@ impl Cpu {
 
                 _ => {}
             }
-        }
     }
 }
 
-fn main() {
+fn main() -> Result<(), String> {
     let mut cpu = Cpu::new();
-    cpu.fetch();
+
+    let sdl_context = sdl2::init()?;
+    let video_subsystem = sdl_context.video()?;
+
+    let window = video_subsystem
+            .window("Chip 8", 640, 480)
+            .position_centered()
+            .opengl()
+            .build()
+            .map_err(|e| e.to_string())?;
+
+    let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
+    let texture_creator = canvas.texture_creator();
+
+    canvas.set_draw_color(Color::RGB(0, 0, 0));
+    canvas.clear();
+    canvas.present();
+
+    let mut event_pump = sdl_context.event_pump()?;
+
+    'running: loop {
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::Quit { .. }
+                | Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    ..
+                } => break 'running,
+                
+                _ => {}
+            }
+        }
+        cpu.fetch();
+        println!("{:?}, {:?}", cpu.pixel.x, cpu.pixel.y);
+        
+        let rect = sdl2::rect::Rect::new(cpu.pixel.x, cpu.pixel.y, 10, 10);
+        
+        canvas.set_viewport(rect);
+        canvas.set_draw_color(cpu.pixel.color);
+        canvas.fill_rect(rect)?;
+
+        canvas.present();
+
+        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 30));
+    }
+
+    Ok(())
 }
