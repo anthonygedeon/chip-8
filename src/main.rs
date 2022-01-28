@@ -74,23 +74,6 @@ impl MemoryMap {
     }
 }
 
-pub struct Cpu {
-    v: [u8; 15],
-    i: u8,
-
-    pc: u16,
-    sp: u8,
-
-    delay_timer: u8,
-    sound_timer: u8,
-
-    stack: [u16; 15],
-
-    mem: MemoryMap,
-    gfx: Display, 
-    pixel: Pixel, 
-}
-
 impl Cpu {
     fn new() -> Self {
         Self {
@@ -400,20 +383,13 @@ fn main() -> Result<(), String> {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => break 'running,
-                
+
                 _ => {}
             }
         }
         cpu.fetch();
-        println!("{:?}, {:?}", cpu.pixel.x, cpu.pixel.y);
-        
-        let rect = sdl2::rect::Rect::new(cpu.pixel.x, cpu.pixel.y, 10, 10);
-        
-        canvas.set_viewport(rect);
-        canvas.set_draw_color(cpu.pixel.color);
-        canvas.fill_rect(rect)?;
-
         canvas.present();
+        println!("{:?}", rects);
 
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 30));
     }
