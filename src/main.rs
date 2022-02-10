@@ -10,21 +10,16 @@ use std::time::Duration;
 
 const MAX_THRESHOLD: usize = 4096;
 
-#[derive(Copy, Clone, Default, Debug)]
-pub struct Pixel {
-    x: i32,
-    y: i32,
-    on: i8,
-}
-
 #[derive(Debug)]
 pub struct MemoryMap {
     ram: [u16; MAX_THRESHOLD],
 }
 
 pub struct Display {
-    grid: [[Pixel; 64]; 32],
+    grid: [[u8; 64]; 32],
 }
+
+pub struct State;
 
 pub struct Cpu {
     v: [u8; 16],
@@ -44,14 +39,8 @@ pub struct Cpu {
 }
 
 impl Display {
-    pub fn create_grid(&mut self) {
-        for (i, row) in self.grid.iter_mut().enumerate() {
-            for (j, col) in row.iter_mut().enumerate() {
-                col.x = j as i32;
-                col.y = i as i32;
-                col.on = 0;
-            }
-        }
+    fn clear_display(&mut self) {
+        self.grid = [[1; 64]; 32];
     }
 }
 
@@ -87,19 +76,13 @@ impl Cpu {
             mem: MemoryMap {
                 ram: [0; MAX_THRESHOLD],
             },
-            gfx: Display {
-                grid: [[Pixel {
-                    x: 0i32,
-                    y: 0i32,
-                    on: 0i8,
-                }; 64]; 32],
-            },
+            gfx: Display { grid: [[1; 64]; 32] },
         }
     }
+    
 
     fn fetch(&mut self) {
         self.mem.load_rom();
-
         /*
            - we need to get the first byte of the opcode since every byte is an instr.
            - in memory we put the pc to point at location 0x200 since that's where programs start
@@ -117,12 +100,11 @@ impl Cpu {
         // println!("{:?}", self.pc);
         let opcode = (self.mem.ram[self.pc as usize] << 8) | (self.mem.ram[(self.pc + 1) as usize]);
 
-        // println!("opcode: {:x?} pc: {:?}", opcode&0xF000,  self.pc);
-        //println!("{:x?}", opcode);
         match opcode & 0xF000 {
             0x0000 => {
                 match opcode & 0x00F0 {
                     0xE0 => {
+                        self.gfx.clear_display();
                         println!("CLS");
                         self.pc += 2;
                     }
@@ -214,59 +196,24 @@ impl Cpu {
             0xC000 => {}
 
             0xD000 => {
-                let mut x = self.v[((opcode & 0x0F00) >> 8) as usize];
-                let mut y = self.v[((opcode & 0x00FF) >> 4) as usize];
-                let nibble = self.mem.ram[self.i as usize];
-                println!("Pixels: {:#018b}", nibble);
-
-                /*
-                    PSEUDO CODE
-
-                    read n bytes from memory -> start at address stored in I
-
-                    so if reg I is 0x32 we need to put that as the index for the memory array
-                    like so -> memory[I] this will get the n byte from memory from whatever address I is
-
-                    what if this was the n byte?
-
-                    memory[I]
-                    base 16 -> 0xFD00
-                    base 2  -> 1111 1101
-
-                    I think I've been approaching this completely wrong
-                    I need to represent the sdl window as bits
-
-                    - The SDL2 window is 640 x 400
-                    - Chip 8 is 64x32
-                    - A naive solution would be to scale the SDL2 window and center it on the resolution of CHIP-8
-
-                    I need the window to be basically all bits
-                    so whatever
-                    +-----------------+
-                    |00000000000000000|
-                    |00000000000000000|
-                    |00000000000000000|
-                    |00000000000000000|
-                    |00000000000000000|
-                    |00000000000000000|
-                    +-----------------+
-                */
-
-                for bytes in nibble..x as u16 {
-                    for sprite in bytes..y as u16 {
-                        x = x ^ sprite as u8;
-                        y = y ^ sprite as u8;
-
-                        self.gfx.grid[x as usize][y as usize].on = 1;
-                        if x == 0 {
-                            self.v[0xF] = 0;
-                        } else if y == 0 {
-                            self.v[0xF] = 1;
+                let x = self.v[((opcode & 0x0F00) >> 8) as usize];
+                let y = self.v[((opcode & 0x00FF) >> 4) as usize];
+                let byte = self.mem.ram[self.i as usize];
+                
+                for b in format!("{:b}", byte).chars() {
+                    let pixel = b.to_digit(2).expect("fail to convert to digit");
+                    for mut sprite in self.gfx.grid {
+                        sprite[0] = 1; 
+                        //sprite[0] = (pixel ^ sprite[0] as u32) as i8;
+                        if sprite[0] == 0 {
+                           self.v[0xF] = 1;
+                        } else {
+                           self.v[0xF] = 0;
                         }
                     }
                 }
 
-                println!("DRW V{:#x?}, V{:#x?}, {:#x?}", x, y, nibble);
+                println!("DRW V{:#x?}, V{:#x?}, {:#x?}", x, y, byte);
                 self.pc += 2;
             }
 
@@ -308,8 +255,6 @@ impl Cpu {
 fn main() -> Result<(), String> {
     let mut cpu = Cpu::new();
 
-    cpu.gfx.create_grid();
-
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
 
@@ -331,7 +276,7 @@ fn main() -> Result<(), String> {
         .create_texture_streaming(PixelFormatEnum::RGB24, 256, 256)
         .map_err(|e| e.to_string())?;
 
-    // Create a red-green gradient
+    // create white texture
     texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
         for y in 0..256 {
             for x in 0..256 {
@@ -342,7 +287,8 @@ fn main() -> Result<(), String> {
             }
         }
     })?;
-
+    
+    // create black texture
     texture2.with_lock(None, |buffer: &mut [u8], pitch: usize| {
         for y in 0..256 {
             for x in 0..256 {
@@ -359,22 +305,6 @@ fn main() -> Result<(), String> {
     canvas.clear();
 
     let mut event_pump = sdl_context.event_pump()?;
-    let mut rects: Vec<sdl2::rect::Rect> = vec![];
-    
-    for row in cpu.gfx.grid {
-        for col in row {
-            let rectangle = sdl2::rect::Rect::new(col.x, col.y, 10, 10);
-            if col.on == 1 {
-                canvas.copy(&texture, None, Some(rectangle))?;
-            } else if col.on == 0 {
-                canvas.copy(&texture2, None, Some(rectangle))?;
-            }
-
-            rects.push(rectangle);
-        }
-    }
-
-
     'running: loop {
         for event in event_pump.poll_iter() {
             match event {
@@ -389,8 +319,21 @@ fn main() -> Result<(), String> {
         }
         cpu.fetch();
         canvas.present();
-        println!("{:?}", rects);
-
+        
+        for (mut i, row) in cpu.gfx.grid.iter().enumerate() {
+            for (mut j, _col) in row.iter().enumerate() {
+                let rectangle = sdl2::rect::Rect::new((j) as i32, (i) as i32, 10, 10);
+                // println!("{:#?}", col);
+                if cpu.gfx.grid[i][j] == 1 {
+                    canvas.copy(&texture, None, Some(rectangle))?;
+                } else if cpu.gfx.grid[i][j] == 0 {
+                    canvas.copy(&texture2, None, Some(rectangle))?;
+                }
+                j + 10;
+                i + 10;
+            }
+        }
+        println!("{:?}", cpu.gfx.grid);
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 30));
     }
 
