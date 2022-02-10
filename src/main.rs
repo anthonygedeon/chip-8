@@ -19,8 +19,6 @@ pub struct Display {
     grid: [[u8; 64]; 32],
 }
 
-pub struct State;
-
 pub struct Cpu {
     v: [u8; 16],
     i: u16,
@@ -40,7 +38,15 @@ pub struct Cpu {
 
 impl Display {
     fn clear_display(&mut self) {
-        self.grid = [[1; 64]; 32];
+        self.grid = [[0; 64]; 32];
+    }
+    
+    fn get_pos(&self, y: u8, x: u8) -> u8 {
+        self.grid[y as usize][x as usize] 
+    }
+
+    fn set_pos(&mut self, y: u8, x: u8) {
+        self.grid[y as usize][x as usize] = 1
     }
 }
 
@@ -198,18 +204,20 @@ impl Cpu {
             0xD000 => {
                 let x = self.v[((opcode & 0x0F00) >> 8) as usize];
                 let y = self.v[((opcode & 0x00FF) >> 4) as usize];
+                let n = opcode & 0x000F;
                 let byte = self.mem.ram[self.i as usize];
                 
                 for b in format!("{:b}", byte).chars() {
-                    let pixel = b.to_digit(2).expect("fail to convert to digit");
-                    for mut sprite in self.gfx.grid {
-                        sprite[0] = 1; 
-                        //sprite[0] = (pixel ^ sprite[0] as u32) as i8;
-                        if sprite[0] == 0 {
+                    for i in byte..byte + (n - 1) {
+                        
+                        self.gfx.set_pos(y, x);
+
+                        if self.gfx.get_pos(y, x) == 0 {
                            self.v[0xF] = 1;
                         } else {
                            self.v[0xF] = 0;
                         }
+
                     }
                 }
 
@@ -333,7 +341,7 @@ fn main() -> Result<(), String> {
                 i + 10;
             }
         }
-        println!("{:?}", cpu.gfx.grid);
+
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 30));
     }
 
