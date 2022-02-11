@@ -45,8 +45,8 @@ impl Display {
         self.grid[y as usize][x as usize] 
     }
 
-    fn set_pos(&mut self, y: u8, x: u8) {
-        self.grid[y as usize][x as usize] = 1
+    fn set_pos(&mut self, y: u8, x: u8, bit: u8) {
+        self.grid[y as usize][x as usize] = bit
     }
 }
 
@@ -82,7 +82,7 @@ impl Cpu {
             mem: MemoryMap {
                 ram: [0; MAX_THRESHOLD],
             },
-            gfx: Display { grid: [[1; 64]; 32] },
+            gfx: Display { grid: [[0; 64]; 32] },
         }
     }
     
@@ -153,7 +153,7 @@ impl Cpu {
             //     self.pc += 2;
             // }
             0x6000 => {
-                let x = (opcode & 0x0F00) >> 8;
+                let x = (opcode >> 8) & 0x000F;
                 let nn = opcode & 0x00FF;
                 self.v[x as usize] = nn as u8;
                 println!("LD V{:#x?}, {:#x?}", x, nn);
@@ -161,9 +161,9 @@ impl Cpu {
             }
 
             0x7000 => {
-                let x = (opcode & 0x0F00) >> 8;
+                let x = (opcode >> 8) & 0x000F;
                 let nn = opcode & 0x00FF;
-                self.v[x as usize] = (x + nn) as u8;
+                self.v[x as usize] += nn as u8;
                 println!("ADD Vx, {:#x?}", nn);
                 self.pc += 2;
             }
@@ -202,26 +202,28 @@ impl Cpu {
             0xC000 => {}
 
             0xD000 => {
-                let x = self.v[((opcode & 0x0F00) >> 8) as usize];
-                let y = self.v[((opcode & 0x00FF) >> 4) as usize];
+                let x = self.v[((opcode >> 8) & 0x000F) as usize];
+                let y = self.v[((opcode >> 4) & 0x000F) as usize];
                 let n = opcode & 0x000F;
-                let byte = self.mem.ram[self.i as usize];
-                
-                for b in format!("{:b}", byte).chars() {
-                    for i in byte..byte + (n - 1) {
-                        
-                        self.gfx.set_pos(y, x);
 
+                for height in 0..n {
+                    for width in 0..8 {
+                        let byte = self.mem.ram[self.i as usize];
+                        
+                        let x_pos = x;
+                        let y_pos = y;
+
+                        self.gfx.set_pos(height as u8 + y_pos, width as u8 + x_pos, 1);
                         if self.gfx.get_pos(y, x) == 0 {
-                           self.v[0xF] = 1;
+                            self.v[0xF] = 1;
                         } else {
-                           self.v[0xF] = 0;
+                            self.v[0xF] = 0;
                         }
+
 
                     }
                 }
 
-                println!("DRW V{:#x?}, V{:#x?}, {:#x?}", x, y, byte);
                 self.pc += 2;
             }
 
