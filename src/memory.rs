@@ -1,4 +1,4 @@
-use std::fs;
+use std::fs::{self, File};
 
 /// The amount of memory that the CHIP-8 can hold
 pub const MAX_THRESHOLD: usize = 4096;
@@ -25,4 +25,13 @@ impl Memory {
             }
         };
     }
+
+    fn read(&self) -> Result() {
+        let f = File::open("roms/IBMLOGO")?;
+        
+
+        fs::read("roms/IBMLOGO")
+    }
+    
 }
+
