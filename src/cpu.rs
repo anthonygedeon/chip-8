@@ -1,5 +1,5 @@
 use crate::display::Display;
-use crate::memory::{Memory, MAX_THRESHOLD};
+use crate::memory::{Memory};
 
 pub struct Instruction {
     opcode: u16, 
@@ -37,11 +37,11 @@ impl Cpu {
             sp: 0,
             v: [0; 16],
             i: 0,
-            memory: Memory { ram: [0; MAX_THRESHOLD], },
+            memory: Memory::new(),
             display: Display { grid: [[0; 64]; 32] },
         };
        
-        if cpu.memory.load_binary("roms/IBMLOGO").is_err() {
+        if cpu.memory.load_rom("roms/IBMLOGO").is_err() {
            panic!("Could not load the binary to memory.");
         }
 
