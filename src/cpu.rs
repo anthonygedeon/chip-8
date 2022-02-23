@@ -1,11 +1,19 @@
 use crate::display::Display;
-use crate::memory::{Memory, MAX_THRESHOLD};
+use crate::memory::{Memory};
+
+pub struct Instruction {
+    opcode: u16, 
+    x: u16, 
+    y: u16, 
+    address: usize, 
+    nn: u16, 
+}
 
 pub struct Cpu {
     v: [u8; 16],
-    i: u16,
+    i: usize,
 
-    pc: u16,
+    pc: usize,
     sp: u8,
 
     delay_timer: u8,
@@ -13,7 +21,7 @@ pub struct Cpu {
 
     stack: [u16; 15],
 
-    memory: Memory, 
+    pub memory: Memory, 
 
     pub display: Display,
 }
@@ -21,7 +29,7 @@ pub struct Cpu {
 impl Cpu {
 
     pub fn new() -> Self {
-        Self {
+        let mut cpu = Self {
             stack: [0; 15],
             sound_timer: 0,
             delay_timer: 0,
@@ -29,96 +37,90 @@ impl Cpu {
             sp: 0,
             v: [0; 16],
             i: 0,
-            memory: Memory {
-                ram: [0; MAX_THRESHOLD],
-            },
+            memory: Memory::new(),
             display: Display { grid: [[0; 64]; 32] },
+        };
+       
+        if cpu.memory.load_rom("roms/IBMLOGO").is_err() {
+           panic!("Could not load the binary to memory.");
         }
+
+        cpu
     }
-    
 
-    pub fn fetch(&mut self) {
-        self.memory.load_rom();
-        /*
-           - we need to get the first byte of the opcode since every byte is an instr.
-           - in memory we put the pc to point at location 0x200 since that's where programs start
+    fn get_opcode(&self) -> u16 {
+        (self.memory.ram[self.pc] << 8) | (self.memory.ram[(self.pc + 1)])
+    }
 
-           pc = 0x200;
+    fn fetch(&mut self) -> Instruction {
 
-           ram[pc] => this grabs 0x00E0
+        let opcode = self.get_opcode();
+        
+        let x = (opcode >> 8) & 0x000F;
+        let y = (opcode >> 4) & 0x000F;
+        let nn = opcode & 0x00FF;
+        let address = (opcode & 0x0FFF) as usize;
 
-           what we want is 0x0 since that is the first byte and a seperate instr.
+        Instruction {
+            opcode, 
+            x, 
+            y, 
+            nn, 
+            address, 
+        } 
+    }
 
-           ## Bit Manipulation
-
-           0x00E0 >> 8 we need to shift it 8 bits to the right to get rid of the right most byte
-        */
-        // println!("{:?}", self.pc);
-        let opcode = (self.memory.ram[self.pc as usize] << 8) | (self.memory.ram[(self.pc + 1) as usize]);
-
-        match opcode & 0xF000 {
+    fn decode(&mut self, instr: Instruction) {
+        match instr.opcode & 0xF000 {
             0x0000 => {
-                match opcode & 0x00F0 {
+                match instr.opcode & 0x00F0 {
                     0xE0 => {
                         self.display.clear();
                         println!("CLS");
                         self.pc += 2;
                     }
 
-                    //0xEE => {
-                    //    println!("RET");
-                    //    self.pc += 2;
-                    //}
-                    //
+                    0xEE => {
+                        unimplemented!();
+                    }
                     _ => {}
                 }
             }
 
             0x1000 => {
-                let nnn = opcode & 0x0FFF;
-                println!("JP {:#x?}", nnn);
-                self.pc = nnn;
+                println!("JP {:#x?}", instr.address);
+                self.pc = instr.address;
             }
 
-            // 0x2000 => {
-            //      let nnn = opcode & 0x0FFF;
-            //      self.sp += 1;
-            //      self.stack[self.sp as usize] = self.pc;
-            //      self.pc = nnn;
-            //      println!("CALL {:x}", nnn);
-            // }
+            0x2000 => {
+                unimplemented!();
+            }
 
-            // 0x3000 => {
-            //     println!("SE Vx, byte");
-            //     self.pc += 2;
-            // }
+            0x3000 => {
+                unimplemented!();
+            }
 
-            // 0x4000 => {
-            //     println!("SNE Vx, byte");
-            //     self.pc += 2;
-            // }
+            0x4000 => {
+                unimplemented!();
+            }
 
-            // 0x5000 => {
-            //     println!("SE Vx, Vy");
-            //     self.pc += 2;
-            // }
+            0x5000 => {
+                unimplemented!();
+            }
+
             0x6000 => {
-                let x = (opcode >> 8) & 0x000F;
-                let nn = opcode & 0x00FF;
-                self.v[x as usize] = nn as u8;
-                println!("LD V{:#x?}, {:#x?}", x, nn);
+                self.v[instr.x as usize] = instr.nn as u8;
+                println!("LD V{:#x?}, {:#x?}", instr.x, instr.nn);
                 self.pc += 2;
             }
 
             0x7000 => {
-                let x = (opcode >> 8) & 0x000F;
-                let nn = opcode & 0x00FF;
-                self.v[x as usize] += nn as u8;
-                println!("ADD Vx, {:#x?}", nn);
+                self.v[instr.x as usize] += instr.nn as u8;
+                println!("ADD Vx, {:#x?}", instr.nn);
                 self.pc += 2;
             }
 
-            0x8000 => match opcode & 0x000F {
+            0x8000 => match instr.opcode & 0x000F {
                 0x1 => {}
 
                 0x2 => {}
@@ -141,9 +143,8 @@ impl Cpu {
             0x9000 => {}
 
             0xA000 => {
-                let nnn = opcode & 0x0FFF;
-                self.i = nnn;
-                println!("LD I, {:#x?}", nnn);
+                self.i = instr.address;
+                println!("LD I, {:#x?}", instr.address);
                 self.pc += 2;
             }
 
@@ -152,9 +153,9 @@ impl Cpu {
             0xC000 => {}
 
             0xD000 => {
-                let x = self.v[((opcode >> 8) & 0x000F) as usize];
-                let y = self.v[((opcode >> 4) & 0x000F) as usize];
-                let n = opcode & 0x000F;
+                let x = self.v[((instr.opcode >> 8) & 0x000F) as usize];
+                let y = self.v[((instr.opcode >> 4) & 0x000F) as usize];
+                let n = instr.opcode & 0x000F;
 
                 for height in 0..n {
                     for width in 0..8 {
@@ -177,7 +178,7 @@ impl Cpu {
                 self.pc += 2;
             }
 
-            0xE000 => match opcode {
+            0xE000 => match instr.opcode {
                 0xE09E => {}
 
                 0xE0A1 => {}
@@ -185,7 +186,7 @@ impl Cpu {
                 _ => {}
             },
 
-            0xF000 => match opcode {
+            0xF000 => match instr.opcode {
                 0xF007 => {}
 
                 0xF00A => {}
@@ -208,6 +209,11 @@ impl Cpu {
             },
 
             _ => {}
-        }
+        }    
+    }
+
+    pub fn cycle(&mut self) {
+        let instruction = self.fetch();
+        self.decode(instruction) 
     }
 }
