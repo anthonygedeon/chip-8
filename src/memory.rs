@@ -1,4 +1,5 @@
 use std::fs::{self, File};
+use std::io;
 
 /// The amount of memory that the CHIP-8 can hold
 pub const MAX_THRESHOLD: usize = 4096;
@@ -9,28 +10,22 @@ pub struct Memory {
 }
 
 impl Memory {
-    pub fn load_rom(&mut self) {
-        // hardcoded path for temporary testing
-        match fs::read("roms/IBMLOGO") {
-            Ok(bytes) => {
-                let start = 512;
 
-                let bytes = bytes.as_slice();
-                for (i, opcode) in bytes.iter().enumerate() {
-                    self.ram[i + start] = *opcode as u16;
-                }
-            }
-            Err(_) => {
-                println!("fail")
-            }
-        };
+    /// Load the `binary` into memory  
+    pub fn load_binary(&mut self, binary: &str) -> io::Result<()> {
+        let bytes = self.read_binary(binary)?;
+        let offset = 512;
+        for (i, opcode) in bytes.iter().enumerate() {
+            self.ram[offset + i] = *opcode as u16;
+        }
+
+        Ok(())
     }
-
-    fn read(&self) -> Result() {
-        let f = File::open("roms/IBMLOGO")?;
-        
-
-        fs::read("roms/IBMLOGO")
+    
+    /// Read the entire binary of a file
+    fn read_binary(&self, binary: &str) -> io::Result<Vec<u8>> {
+        let mut f = fs::read(binary)?;
+        Ok(f) 
     }
     
 }
