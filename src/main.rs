@@ -75,7 +75,7 @@ fn main() -> Result<(), String> {
                 _ => {}
             }
         }
-        cpu.fetch();
+        cpu.cycle();
         canvas.present();
         
         for (mut i, row) in cpu.display.grid.iter().enumerate() {
