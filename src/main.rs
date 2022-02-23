@@ -12,8 +12,8 @@ mod display;
 mod cpu;
 mod vm;
 
-const WIDTH: u32 = 640;
-const HEIGHT: u32 = 480;
+const WINDOW_WIDTH: u32 = 640;
+const WINDOW_HEIGHT: u32 = 480;
 const WINDOW_TITLE: &str = "CHIP-8";
 
 fn main() -> Result<(), String> {
@@ -24,7 +24,7 @@ fn main() -> Result<(), String> {
     let video_subsystem = sdl_context.video()?;
 
     let window = video_subsystem
-        .window(WINDOW_TITLE, WIDTH, HEIGHT)
+        .window(WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT)
         .position_centered()
         .opengl()
         .build()
@@ -88,7 +88,6 @@ fn main() -> Result<(), String> {
                 Event::KeyDown { keycode: Some(Keycode::R), .. } => (), 
                 Event::KeyDown { keycode: Some(Keycode::A), .. } => (), 
                 Event::KeyDown { keycode: Some(Keycode::S), .. } => (), 
-                Event::KeyDown { keycode: Some(Keycode::S), .. } => (), 
                 Event::KeyDown { keycode: Some(Keycode::D), .. } => (), 
                 Event::KeyDown { keycode: Some(Keycode::F), .. } => (), 
                 Event::KeyDown { keycode: Some(Keycode::Z), .. } => (), 
@@ -102,13 +101,13 @@ fn main() -> Result<(), String> {
         vm.run();
         canvas.present();
         
-        for (mut i, row) in cpu.display.grid.iter().enumerate() {
+        for (mut i, row) in vm.cpu.display.grid.iter().enumerate() {
             for (mut j, _col) in row.iter().enumerate() {
                 let rectangle = sdl2::rect::Rect::new((j) as i32, (i) as i32, 10, 10);
 
-                if cpu.display.grid[i][j] == 1 {
+                if vm.cpu.display.grid[i][j] == 1 {
                     canvas.copy(&texture, None, Some(rectangle))?;
-                } else if cpu.display.grid[i][j] == 0 {
+                } else if vm.cpu.display.grid[i][j] == 0 {
                     canvas.copy(&texture2, None, Some(rectangle))?;
                 }
 
