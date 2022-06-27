@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <string>
 
 #define MAX_MEM 0xFFF
 #define MIN_MEM 0x200
@@ -45,17 +46,24 @@ class CPU {
 };
 
 int main() {
-    MemoryMap m_map = {0};
-    CPU cpu = {MIN_MEM, 0, 0, 0, 0, 0, 0};
+    MemoryMap m_map = { 0 };
+    CPU cpu = { MIN_MEM, 0, 0, 0, 0, 0, 0 };
 
     m_map.load_file("IBMLOGO");
 
     for (;;) {
         uint16_t opcode = (m_map.ram[cpu.pc] << 8) | (m_map.ram[cpu.pc + 1]);
 
-        // TODO: disassemble cpu for debugging purposes
+        uint8_t x = opcode & 0x0F00;
+        uint8_t y = opcode & 0x00F0;
+        uint8_t n = opcode & 0x000F;
+        uint8_t nn = opcode & 0x00FF;
+        uint16_t nnn = opcode & 0x0FFF;
+
+        std::cout << std::hex << opcode << "\n";
+
         switch (opcode & 0xF000) {
-            case 0x0: {
+            case 0x0000: {
                 switch (opcode & 0x00FF) {
                     case 0xE0: {
                         std::cout << "cls\n";
@@ -64,51 +72,43 @@ int main() {
                     }
 
                     case 0xEE:
-                        cpu.pc = cpu.stack_register[16];
+                        cpu.pc = cpu.stack_register[0xF];
                         cpu.sp--;
+                        std::cout << "RET\n";
                         break;
                 }
+                break;
             }
-            case 0x1: {
-                uint16_t nnn = opcode & 0x0FFF;
-                std::cout << "JP " << nnn << "\n";
+            case 0x1000: {
+                std::cout << "JP " << std::hex << +nnn << "\n";
                 cpu.pc = nnn;
                 break;
             }
-            case 0x6: {
-                uint8_t x = opcode & 0x0F00;
-                uint8_t kk = opcode & 0x00FF;
-                std::cout << "LD V[" << x << "], " << kk;
-                cpu.v_register[x] = kk;
-                break;
-            }
-            case 0x7: {
-                uint8_t x = opcode & 0x0F00;
-                uint8_t kk = opcode & 0x00FF;
-                std::cout << "LD V[" << x << "], " << kk;
-                cpu.v_register[x] += kk;
+            case 0x6000: {
+                std::cout << "LD V[" << std::hex <<+x << "], " << std::hex << +nn << "\n";
+                cpu.v_register[x] = nn;
                 cpu.pc += 2;
                 break;
             }
-            case 0xA: {
-                uint16_t nnn = opcode & 0x0FFF;
-                std::cout << "LD I, " << nnn << "\n";
+            case 0x7000: {
+                std::cout << "LD V[" << std::hex <<+x << "], " << std::hex << +nn << "\n";
+                cpu.v_register[x] += nn;
+                cpu.pc += 2;
+                break;
+            }
+            case 0xA000: {
+                std::cout << "LD I, " << std::hex << +nnn << "\n";
                 cpu.i_register = nnn;
                 cpu.pc += 2;
                 break;
             }
-            case 0xD: {
-                std::cout << "DRW Vx, Vy, nibble";
+            case 0xD000: {
+                std::cout << "DRW Vx, Vy, nibble\n";
+                cpu.pc += 2;
                 break;
             }
         }
     }
-
-    // std::cout << "[";
-    // for (int i{0}; i < m_map.ram.size(); i++) {
-    // std::cout << +m_map.ram[i] << " ";
-    //}
-    // std::cout << "]\n";
 
     return 0;
 }
