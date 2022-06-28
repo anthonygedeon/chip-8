@@ -4,8 +4,8 @@
 #include <iostream>
 #include <string>
 
-#define MAX_MEM 0xFFF
-#define MIN_MEM 0x200
+const int MAX_MEM = 0xFFF;
+const int MIN_MEM = 0x200;
 
 class MemoryMap {
    public:
