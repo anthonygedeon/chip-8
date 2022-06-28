@@ -30,8 +30,6 @@ class MemoryMap {
 };
 
 class CPU {
-    void fetch_opcode() {}
-
    public:
     uint16_t pc;
     uint8_t sp;
@@ -43,6 +41,10 @@ class CPU {
 
     uint8_t delay_timer_register;
     uint8_t sound_timer_register;
+    
+    uint16_t fetch_opcode(std::array<uint8_t, MAX_MEM> ram) {
+        return (ram[this->pc] << 8) | (ram[this->pc + 1]);
+    }
 };
 
 int main() {
@@ -52,7 +54,7 @@ int main() {
     m_map.load_file("IBMLOGO");
 
     for (;;) {
-        uint16_t opcode = (m_map.ram[cpu.pc] << 8) | (m_map.ram[cpu.pc + 1]);
+        uint16_t opcode = cpu.fetch_opcode(m_map.ram);
 
         uint8_t x = opcode & 0x0F00;
         uint8_t y = opcode & 0x00F0;
