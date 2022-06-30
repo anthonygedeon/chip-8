@@ -86,6 +86,10 @@ int main() {
                 cpu.pc = nnn;
                 break;
             }
+            case 0x2000: {}
+            case 0x3000: {}
+            case 0x4000: {}
+            case 0x5000: {}
             case 0x6000: {
                 std::cout << "LD V[" << std::hex << +x << "], " << std::hex
                           << +nn << "\n";
@@ -100,16 +104,51 @@ int main() {
                 cpu.pc += 2;
                 break;
             }
+            case 0x8000: {
+                switch(opcode & 0x000F) {
+                        case 0x0: {} 
+                        case 0x1: {}
+                        case 0x2: {}
+                        case 0x3: {}
+                        case 0x4: {}
+                        case 0x5: {}
+                        case 0x6: {}
+                        case 0x7: {}
+                        case 0xE: {}
+                }
+            }
+            case 0x9000: {}
             case 0xA000: {
                 std::cout << "LD I, " << std::hex << +nnn << "\n";
                 cpu.i_register = nnn;
                 cpu.pc += 2;
                 break;
             }
+            case 0xB000: {}
+            case 0xC000: {}
             case 0xD000: {
                 std::cout << "DRW Vx, Vy, nibble\n";
                 cpu.pc += 2;
                 break;
+            }
+            case 0xE000: {
+                switch(opcode & 0x00FF) {
+                        case 0x9E: {}
+                        case 0xA1: {}
+                }
+            }
+            case 0xF000: {
+                switch(opcode & 0x00FF) {
+                    case 0x07: {}
+                    case 0x0A: {}
+                    case 0x15: {}
+                    case 0x18: {}
+                    case 0x1E: {}
+                    case 0x29: {}
+                    case 0x33: {}
+                    case 0x55: {}
+                    case 0x65: {}
+                }
             }
         }
     }
