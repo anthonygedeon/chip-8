@@ -1,62 +1,38 @@
+#include "memory.hpp"
+#include "registers.hpp"
+
 #include <array>
 #include <cstdint>
-#include <fstream>
 #include <iostream>
-#include <string>
 
-const int MAX_MEM = 0xFFF;
-const int MIN_MEM = 0x200;
-
-class MemoryMap {
-   public:
-    std::array<uint8_t, MAX_MEM> ram;
-
-    int load_file(std::string filename) {
-        std::ifstream inf{"roms/" + filename, std::ios::in | std::ios::binary};
-        if (!inf) {
-            std::cout << "failed to read " << filename << " from disk\n";
-            return 1;
-        }
-
-        int i = MIN_MEM;
-        while (!inf.eof()) {
-            uint8_t mem_byte{};
-            // TODO: consider using ::get() to preserve bytes instead of
-            // operator>> removing whitespace chars
-            inf >> std::noskipws >> mem_byte;
-            this->ram[i] = mem_byte;
-            i++;
-        }
-        return 0;
-    }
-};
-
-class CPU {
-   public:
+struct CPU {
     uint16_t pc;
     uint8_t sp;
+        
+    Register reg;
 
-    std::array<uint8_t, 0xF> v_register;
-    std::array<uint16_t, 16> stack_register;
+    uint8_t display[31][63];
 
-    uint16_t i_register;
-
-    uint8_t delay_timer_register;
-    uint8_t sound_timer_register;
-
-    uint16_t fetch_opcode(std::array<uint8_t, MAX_MEM> ram) {
+    uint16_t fetch_opcode(std::array<uint8_t, max_mem> ram) {
         return (ram[this->pc] << 8) | (ram[this->pc + 1]);
+    }
+
+    CPU() {
+        this->pc = min_mem;
+        this->sp = 0;
+        this->reg.i = 0;
+        this->reg.delay_timer = 0;
+        this->reg.sound_timer = 0;
     }
 };
 
 int main() {
-    MemoryMap m_map = {0};
-    CPU cpu = {MIN_MEM, 0, 0, 0, 0, 0, 0};
-
-    m_map.load_file("IBMLOGO");
+    auto cpu = CPU();
+    memory::load_rom("IBMLOGO");
+    memory::load_font();
 
     for (;;) {
-        uint16_t opcode = cpu.fetch_opcode(m_map.ram);
+        uint16_t opcode = cpu.fetch_opcode(memory::ram);
 
         uint8_t x = (opcode & 0x0F00) >> 8;
         uint8_t y = (opcode & 0x00F0) >> 4;
@@ -69,12 +45,13 @@ int main() {
                 switch (opcode & 0x00FF) {
                     case 0xE0: {
                         std::cout << "CLS\n";
+                        memory::vram.fill({0});
                         cpu.pc += 2;
                         break;
                     }
 
                     case 0xEE:
-                        cpu.pc = cpu.stack_register[0xF];
+                        cpu.pc = cpu.reg.s[0xF];
                         cpu.sp--;
                         std::cout << "RET\n";
                         break;
@@ -93,14 +70,14 @@ int main() {
             case 0x6000: {
                 std::cout << "LD V[" << std::hex << +x << "], " << std::hex
                           << +nn << "\n";
-                cpu.v_register[x] = nn;
+                cpu.reg.v[x] = nn;
                 cpu.pc += 2;
                 break;
             }
             case 0x7000: {
                 std::cout << "LD V[" << std::hex << +x << "], " << std::hex
                           << +nn << "\n";
-                cpu.v_register[x] += nn;
+                cpu.reg.v[x] += nn;
                 cpu.pc += 2;
                 break;
             }
@@ -120,7 +97,7 @@ int main() {
             case 0x9000: {}
             case 0xA000: {
                 std::cout << "LD I, " << std::hex << +nnn << "\n";
-                cpu.i_register = nnn;
+                cpu.reg.i = nnn;
                 cpu.pc += 2;
                 break;
             }
@@ -128,6 +105,14 @@ int main() {
             case 0xC000: {}
             case 0xD000: {
                 std::cout << "DRW Vx, Vy, nibble\n";
+                
+                uint8_t addr  = cpu.reg.i;
+                uint8_t x_pos = cpu.reg.v[x];
+                uint8_t y_pos = cpu.reg.v[y];
+                
+                //cpu.v_register[0xF] = 1;
+                //cpu.v_register[0xF] = 0;
+
                 cpu.pc += 2;
                 break;
             }
