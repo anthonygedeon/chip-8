@@ -16,43 +16,6 @@ Current sources:
 - [cowgod's chip-8 technical reference](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM)
 - [post by Matthew Mikolay](http://mattmik.com/files/chip8/mastering/chip8.html)
 
-## Installation
-You must have golang installed on your machine
-```
-go install github.com/anthonygedeon/chip8
-```
-
-## Usage
-Default clock speed: 60Hz
-```sh
-chip8 run `path/to/rom`
-```
-
-### Disassembly
-```sh
-chip8 -d `path/to/rom`
-```
-
-### Version
-```sh
-chip8 version
-```
-
-### Help
-```sh
-chip8 help
-```
-
-### Screenshots
-
-![Pong 2](./docs/screenshots/pong2.png)
-![Connect4](./docs/screenshots/connect4.png)
-![TicTac](./docs/screenshots/tictac.png)
-![Ibm Logo](./docs/screenshots/ibmlogo.png)
-![Hidden](./docs/screenshots/hidden.png)
-![Invaders](./docs/screenshots/invaders.png)
-
-
 ### Support Me
 Give a ⭐ if this project was helpful in any way!
 
