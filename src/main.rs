@@ -64,7 +64,7 @@ fn main() -> Result<(), String> {
     })?;
 
     canvas.set_draw_color(Color::RGB(0, 0, 0));
-    canvas.set_scale(8.8, 12.0).expect("could not scale window");
+    canvas.set_scale(WINDOW_WIDTH as f32 / 64.0, WINDOW_HEIGHT as f32 / 32.0).expect("could not scale window");
     canvas.clear();
 
     let mut event_pump = sdl_context.event_pump()?;
