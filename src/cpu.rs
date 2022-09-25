@@ -41,7 +41,7 @@ impl Cpu {
             display: Display { grid: [[0; 64]; 32] },
         };
        
-        if cpu.memory.load_rom("roms/IBMLOGO").is_err() {
+        if cpu.memory.load_rom("roms/ibmlogo.ch8").is_err() {
            panic!("Could not load the binary to memory.");
         }
 
