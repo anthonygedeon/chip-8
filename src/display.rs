@@ -12,7 +12,7 @@ impl Display {
     }
 
     pub fn set_pos(&mut self, y: u8, x: u8, bit: u8) {
-        self.grid[y as usize][x as usize] = bit
+        self.grid[y as usize][x as usize] ^= bit
     }
 }
 

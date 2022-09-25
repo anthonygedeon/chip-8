@@ -156,23 +156,20 @@ impl Cpu {
                 let x = self.v[((instr.opcode >> 8) & 0x000F) as usize];
                 let y = self.v[((instr.opcode >> 4) & 0x000F) as usize];
                 let n = instr.opcode & 0x000F;
-
+                
                 for height in 0..n {
-                    for width in 0..8 {
-                        let byte = self.memory.ram[self.i as usize];
-                        
-                        let x_pos = x;
-                        let y_pos = y;
-
-                        self.display.set_pos(height as u8 + y_pos, width as u8 + x_pos, 1);
-                        if self.display.get_pos(y, x) == 0 {
-                            self.v[0xF] = 1;
+                    let byte = self.memory.ram[self.i + height as usize];
+                    for width in (0..=7).rev() {
+                        let pixel = (byte>>width) & 0x1;
+                        self.display.set_pos(height as u8 + y, (7-width) + x, pixel as u8);
+                        if self.display.get_pos(y, x) == 1 {
+                            self.v[0xF] = 0x01;
                         } else {
-                            self.v[0xF] = 0;
+                            self.v[0xF] = 0x00;
                         }
 
-
                     }
+                    
                 }
 
                 self.pc += 2;
