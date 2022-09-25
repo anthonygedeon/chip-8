@@ -159,19 +159,16 @@ impl Cpu {
                 
                 for height in 0..n {
                     let byte = self.memory.ram[self.i + height as usize];
-                    for width in (0..=7).rev() {
-                        let pixel = (byte>>width) & 0x1;
-                        self.display.set_pos(height as u8 + y, (7-width) + x, pixel as u8);
+                    for width in 0..=7 {
+                        let pixel = (((byte<<width) & 0x80) >> 7) as u8;
+                        self.display.set_pos(height as u8 + y, width + x, pixel);
                         if self.display.get_pos(y, x) == 1 {
                             self.v[0xF] = 0x01;
                         } else {
                             self.v[0xF] = 0x00;
                         }
-
                     }
-                    
                 }
-
                 self.pc += 2;
             }
 
