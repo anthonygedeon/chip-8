@@ -2,27 +2,47 @@ use crate::display::Display;
 use crate::memory::{Memory};
 
 pub struct Instruction {
-    opcode: u16, 
     x: u16, 
+
     y: u16, 
-    address: usize, 
+
     nn: u16, 
+
+    opcode: u16, 
+
+    address: usize, 
+}
+
+// CHIP-8 Registers, think of these as variables that can be manipualated by the emulator
+#[derive(Default, Debug)]
+pub struct Register {
+    // the program counter is essentially a pointer that points to the current instruction
+    // in the CHIP-8 Memory 
+    pc: usize, 
+
+    // the stack pointer points to the word in the stack.
+    sp: usize, 
+
+    // special purpose register for delaying the timer
+    // when this timer is non-zero i.e { 1.. } then it should be decremented
+    dt: u8, 
+
+    // special purpose register for playing sound only when the value is non-zero
+    st: u8, 
+    
+    // stack which is used by the sp register
+    stack: [u16; 16], 
+    
+    // general-purpose registers for v[0] - v[16]
+    v: [u8; 16],
+
+    // general-purpose register which is used to store the memory address
+    i: usize, 
 }
 
 pub struct Cpu {
-    v: [u8; 16],
-    i: usize,
-
-    pc: usize,
-    sp: u8,
-
-    delay_timer: u8,
-    sound_timer: u8,
-
-    stack: [u16; 15],
-
+    pub register: Register, 
     pub memory: Memory, 
-
     pub display: Display,
 }
 
@@ -30,13 +50,7 @@ impl Cpu {
 
     pub fn new() -> Self {
         let mut cpu = Self {
-            stack: [0; 15],
-            sound_timer: 0,
-            delay_timer: 0,
-            pc: 0x200,
-            sp: 0,
-            v: [0; 16],
-            i: 0,
+            register: Register { pc: 0x200, ..Default::default() }, 
             memory: Memory::new(),
             display: Display { grid: [[0; 64]; 32] },
         };
@@ -77,7 +91,7 @@ impl Cpu {
                     0xE0 => {
                         self.display.clear();
                         println!("CLS");
-                        self.pc += 2;
+                        self.register.pc += 2;
                     }
 
                     0xEE => {
@@ -89,7 +103,7 @@ impl Cpu {
 
             0x1000 => {
                 println!("JP {:#x?}", instr.address);
-                self.pc = instr.address;
+                self.register.pc = instr.address;
             }
 
             0x2000 => {
@@ -109,15 +123,15 @@ impl Cpu {
             }
 
             0x6000 => {
-                self.v[instr.x as usize] = instr.nn as u8;
+                self.register.v[instr.x as usize] = instr.nn as u8;
                 println!("LD V{:#x?}, {:#x?}", instr.x, instr.nn);
-                self.pc += 2;
+                self.register.pc += 2;
             }
 
             0x7000 => {
-                self.v[instr.x as usize] += instr.nn as u8;
+                self.register.v[instr.x as usize] += instr.nn as u8;
                 println!("ADD Vx, {:#x?}", instr.nn);
-                self.pc += 2;
+                self.register.pc += 2;
             }
 
             0x8000 => match instr.opcode & 0x000F {
@@ -143,9 +157,9 @@ impl Cpu {
             0x9000 => {}
 
             0xA000 => {
-                self.i = instr.address;
+                self.register.i = instr.address;
                 println!("LD I, {:#x?}", instr.address);
-                self.pc += 2;
+                self.register.pc += 2;
             }
 
             0xB000 => {}
@@ -153,23 +167,23 @@ impl Cpu {
             0xC000 => {}
 
             0xD000 => {
-                let x = self.v[((instr.opcode >> 8) & 0x000F) as usize];
-                let y = self.v[((instr.opcode >> 4) & 0x000F) as usize];
+                let x = self.register.v[instr.x as usize];
+                let y = self.register.v[instr.y as usize];
                 let n = instr.opcode & 0x000F;
                 
                 for height in 0..n {
-                    let byte = self.memory.ram[self.i + height as usize];
+                    let byte = self.memory.ram[self.register.i + height as usize];
                     for width in 0..=7 {
                         let pixel = (((byte<<width) & 0x80) >> 7) as u8;
                         self.display.set_pos(height as u8 + y, width + x, pixel);
                         if self.display.get_pos(y, x) == 1 {
-                            self.v[0xF] = 0x01;
+                            self.register.v[0xF] = 0x01;
                         } else {
-                            self.v[0xF] = 0x00;
+                            self.register.v[0xF] = 0x00;
                         }
                     }
                 }
-                self.pc += 2;
+                self.register.pc += 2;
             }
 
             0xE000 => match instr.opcode {
