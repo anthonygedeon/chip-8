@@ -10,15 +10,13 @@ use std::time::Duration;
 mod memory;
 mod display;
 mod cpu;
-mod vm;
 
 const WINDOW_WIDTH: u32 = 640;
 const WINDOW_HEIGHT: u32 = 480;
 const WINDOW_TITLE: &str = "CHIP-8";
 
 fn main() -> Result<(), String> {
-    let cpu = cpu::Cpu::new();
-    let mut vm = vm::VirtualMachine{ cpu };
+    let mut cpu = cpu::Cpu::new();
 
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
@@ -97,22 +95,22 @@ fn main() -> Result<(), String> {
                 _ => {}
             }
         }
-
-        vm.run();
+        
+        cpu.cycle();
         canvas.present();
         
-        for (mut i, row) in vm.cpu.display.grid.iter().enumerate() {
-            for (mut j, _col) in row.iter().enumerate() {
-                let rectangle = sdl2::rect::Rect::new((j) as i32, (i) as i32, 10, 10);
-
-                if vm.cpu.display.grid[i][j] == 1 {
+        for (mut i, row) in cpu.display.grid.iter().enumerate() {
+            for (mut j, _) in row.iter().enumerate() {
+                let rectangle = sdl2::rect::Rect::new(j as i32, i as i32 , 10, 10);
+                
+                // draw white cell
+                if cpu.display.grid[i][j] == 1 {
                     canvas.copy(&texture, None, Some(rectangle))?;
-                } else if vm.cpu.display.grid[i][j] == 0 {
+
+                // draw black cell
+                } else if cpu.display.grid[i][j] == 0 {
                     canvas.copy(&texture2, None, Some(rectangle))?;
                 }
-
-                j + 10;
-                i + 10;
             }
         }
 
