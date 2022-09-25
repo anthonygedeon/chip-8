@@ -99,8 +99,8 @@ fn main() -> Result<(), String> {
         cpu.cycle();
         canvas.present();
         
-        for (mut i, row) in cpu.display.grid.iter().enumerate() {
-            for (mut j, _) in row.iter().enumerate() {
+        for (i, row) in cpu.display.grid.iter().enumerate() {
+            for (j, _) in row.iter().enumerate() {
                 let rectangle = sdl2::rect::Rect::new(j as i32, i as i32 , 10, 10);
                 
                 // draw white cell
