@@ -63,24 +63,17 @@ impl Cpu {
     }
 
     fn get_opcode(&self) -> u16 {
-        (self.memory.ram[self.pc] << 8) | (self.memory.ram[(self.pc + 1)])
+        (self.memory.ram[self.register.pc] << 8) | (self.memory.ram[self.register.pc + 1]) 
     }
 
     fn fetch(&mut self) -> Instruction {
-
         let opcode = self.get_opcode();
-        
-        let x = (opcode >> 8) & 0x000F;
-        let y = (opcode >> 4) & 0x000F;
-        let nn = opcode & 0x00FF;
-        let address = (opcode & 0x0FFF) as usize;
-
         Instruction {
             opcode, 
-            x, 
-            y, 
-            nn, 
-            address, 
+            x: (opcode >> 8) & 0x000F, 
+            y: (opcode >> 4) & 0x000F, 
+            nn: opcode & 0x00FF, 
+            address: (opcode & 0x0FFF) as usize,
         } 
     }
 
