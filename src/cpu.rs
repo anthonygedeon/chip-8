@@ -1,3 +1,5 @@
+use std::num::Wrapping;
+
 use crate::display::Display;
 use crate::memory::{Memory};
 
@@ -134,15 +136,47 @@ impl Cpu {
             }
 
             0x8000 => match instr.opcode & 0x000F {
-                0x1 => {}
+                0x0 => {
+                    self.register.v[instr.x] = self.register.v[instr.y];
+                    self.register.pc += 2;
+                }
 
-                0x2 => {}
+                0x1 => {
+                    self.register.v[instr.x] |= self.register.v[instr.y];
+                    self.register.pc += 2;
+                }
 
-                0x3 => {}
+                0x2 => {
+                    self.register.v[instr.x] &= self.register.v[instr.y];
+                    self.register.pc += 2;
+                }
 
-                0x4 => {}
+                0x3 => {
+                    self.register.v[instr.x] ^= self.register.v[instr.y];
+                    self.register.pc += 2;
+                }
 
-                0x5 => {}
+                0x4 => {
+                    let result = (self.register.v[instr.x] as u16) + (self.register.v[instr.y] as u16) & 0x00FF;
+                    if self.register.v[instr.x] > 255 as u8 {
+                        self.register.v[0xF] = 1;
+                    } else {
+                        self.register.v[0xF] = 0;
+                    }
+                    self.register.v[instr.x] = result as u8;
+                    self.register.pc += 2;
+                }
+
+                0x5 => {
+                    if self.register.v[instr.x] > self.register.v[instr.y] {
+                        self.register.v[0xF] = 1;
+                    } else {
+                        self.register.v[0xF] = 0;
+                    }
+                    let result = Wrapping(self.register.v[instr.x]) - Wrapping(self.register.v[instr.y]);
+                    self.register.v[instr.x] = result.0;
+                    self.register.pc += 2;
+                }
 
                 0x6 => {}
 
