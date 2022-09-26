@@ -193,7 +193,7 @@ impl Cpu {
                 _ => {}
             },
 
-            0xF000 => match instr.opcode {
+            0xF000 => match instr.opcode & 0x00FF {
                 0xF007 => {}
 
                 0xF00A => {}
