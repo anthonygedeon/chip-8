@@ -84,15 +84,16 @@ impl Cpu {
             0x0000 => {
                 match instr.opcode & 0x00FF {
                     0xE0 => {
-                        self.display.clear();
                         println!("CLS");
+                        self.display.clear();
                         self.register.pc += 2;
                     }
 
                     0xEE => {
-                        self.register.pc = self.register.stack[0xF] as usize;
-                        self.register.sp -= 1;
                         println!("RET");
+                        self.register.sp -= 1;
+                        self.register.pc = self.register.stack[self.register.sp] as usize;
+                        self.register.pc += 2;
                     }
                     _ => {}
                 }
@@ -104,34 +105,45 @@ impl Cpu {
             }
 
             0x2000 => {
-                unimplemented!();
+                self.register.stack[self.register.sp] = self.register.pc as u16;
+                self.register.sp += 1;
+                self.register.pc = instr.address;
             }
 
             0x3000 => {
-                if self.register.v[instr.x] as u8 == instr.nn as u8 {
+                if self.register.v[instr.x] as u16 == instr.nn as u16 {
                     self.register.pc += 4;
+                } else {
+                    self.register.pc += 2;
                 }
             }
 
             0x4000 => {
-                if self.register.v[instr.x] != self.register.v[instr.y] {
+                if self.register.v[instr.x] as u16 != instr.nn as u16 {
+                    self.register.pc += 4;
+                } else {
                     self.register.pc += 2;
                 }
             }
 
             0x5000 => {
-                unimplemented!();
-            }
-
+                println!("SE {}, {}", self.register.v[instr.x], self.register.v[instr.y]);
+                 if self.register.v[instr.x] == self.register.v[instr.y] {
+                    self.register.pc += 4;
+                } else {
+                    self.register.pc += 2;
+                }
+            }    
+                 
             0x6000 => {
-                self.register.v[instr.x as usize] = instr.nn as u8;
                 println!("LD V{:#x?}, {:#x?}", instr.x, instr.nn);
+                self.register.v[instr.x as usize] = instr.nn as u8;
                 self.register.pc += 2;
             }
 
             0x7000 => {
-                self.register.v[instr.x as usize] += instr.nn as u8;
                 println!("ADD Vx, {:#x?}", instr.nn);
+                self.register.v[instr.x] += instr.nn as u8 % 255;
                 self.register.pc += 2;
             }
 
