@@ -199,15 +199,22 @@ impl Cpu {
                 _ => {}
             },
 
-            0x9000 => {}
+            0x9000 => {
+                println!("SNE {}, {}", self.register.v[instr.x], self.register.v[instr.y]);
+                 if self.register.v[instr.x] != self.register.v[instr.y] {
+                    self.register.pc += 2;
+                }
+            }
 
             0xA000 => {
-                self.register.i = instr.address;
                 println!("LD I, {:#x?}", instr.address);
+                self.register.i = instr.address;
                 self.register.pc += 2;
             }
 
-            0xB000 => {}
+            0xB000 => {
+                self.register.pc = instr.address as usize + self.register.v[0] as usize;
+            }
 
             0xC000 => {}
 
