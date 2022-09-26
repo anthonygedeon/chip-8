@@ -2,9 +2,9 @@ use crate::display::Display;
 use crate::memory::{Memory};
 
 pub struct Instruction {
-    x: u16, 
+    x: usize, 
 
-    y: u16, 
+    y: usize, 
 
     nn: u16, 
 
@@ -55,7 +55,7 @@ impl Cpu {
             display: Display { grid: [[0; 64]; 32] },
         };
        
-        if cpu.memory.load_rom("roms/ibmlogo.ch8").is_err() {
+        if cpu.memory.load_rom("tests/test_opcode.ch8").is_err() {
            panic!("Could not load the binary to memory.");
         }
 
@@ -70,8 +70,8 @@ impl Cpu {
         let opcode = self.get_opcode();
         Instruction {
             opcode, 
-            x: (opcode >> 8) & 0x000F, 
-            y: (opcode >> 4) & 0x000F, 
+            x: ((opcode >> 8) & 0x000F) as usize, 
+            y: ((opcode >> 4) & 0x000F) as usize, 
             nn: opcode & 0x00FF, 
             address: (opcode & 0x0FFF) as usize,
         } 
@@ -80,7 +80,7 @@ impl Cpu {
     fn decode(&mut self, instr: Instruction) {
         match instr.opcode & 0xF000 {
             0x0000 => {
-                match instr.opcode & 0x00F0 {
+                match instr.opcode & 0x00FF {
                     0xE0 => {
                         self.display.clear();
                         println!("CLS");
@@ -88,7 +88,9 @@ impl Cpu {
                     }
 
                     0xEE => {
-                        unimplemented!();
+                        self.register.pc = self.register.stack[0xF] as usize;
+                        self.register.sp -= 1;
+                        println!("RET");
                     }
                     _ => {}
                 }
@@ -104,11 +106,15 @@ impl Cpu {
             }
 
             0x3000 => {
-                unimplemented!();
+                if self.register.v[instr.x] as u8 == instr.nn as u8 {
+                    self.register.pc += 4;
+                }
             }
 
             0x4000 => {
-                unimplemented!();
+                if self.register.v[instr.x] != self.register.v[instr.y] {
+                    self.register.pc += 2;
+                }
             }
 
             0x5000 => {
