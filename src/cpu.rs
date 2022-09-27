@@ -8,11 +8,11 @@ pub struct Instruction {
 
     y: usize, 
 
-    nn: u16, 
+    nn: u8, 
 
     opcode: u16, 
 
-    address: usize, 
+    nnn: usize, 
 }
 
 // CHIP-8 Registers, think of these as variables that can be manipualated by the emulator
@@ -74,8 +74,8 @@ impl Cpu {
             opcode, 
             x: ((opcode >> 8) & 0x000F) as usize, 
             y: ((opcode >> 4) & 0x000F) as usize, 
-            nn: opcode & 0x00FF, 
-            address: (opcode & 0x0FFF) as usize,
+            nn: (opcode & 0x00FF) as u8, 
+            nnn: (opcode & 0x0FFF) as usize,
         } 
     }
 
