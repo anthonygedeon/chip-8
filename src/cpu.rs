@@ -1,3 +1,5 @@
+use std::num::Wrapping;
+
 use crate::display::Display;
 use crate::memory::{Memory};
 
@@ -6,11 +8,11 @@ pub struct Instruction {
 
     y: usize, 
 
-    nn: u16, 
+    nn: u8, 
 
     opcode: u16, 
 
-    address: usize, 
+    nnn: usize, 
 }
 
 // CHIP-8 Registers, think of these as variables that can be manipualated by the emulator
@@ -72,8 +74,8 @@ impl Cpu {
             opcode, 
             x: ((opcode >> 8) & 0x000F) as usize, 
             y: ((opcode >> 4) & 0x000F) as usize, 
-            nn: opcode & 0x00FF, 
-            address: (opcode & 0x0FFF) as usize,
+            nn: (opcode & 0x00FF) as u8, 
+            nnn: (opcode & 0x0FFF) as usize,
         } 
     }
 
@@ -82,86 +84,174 @@ impl Cpu {
             0x0000 => {
                 match instr.opcode & 0x00FF {
                     0xE0 => {
-                        self.display.clear();
                         println!("CLS");
+                        self.display.clear();
                         self.register.pc += 2;
                     }
 
                     0xEE => {
-                        self.register.pc = self.register.stack[0xF] as usize;
-                        self.register.sp -= 1;
                         println!("RET");
+                        self.register.sp -= 1;
+                        self.register.pc = self.register.stack[self.register.sp] as usize;
+                        self.register.pc += 2;
                     }
                     _ => {}
                 }
             }
 
             0x1000 => {
-                println!("JP {:#x?}", instr.address);
-                self.register.pc = instr.address;
+                println!("JP {:#x?}", instr.nnn);
+                self.register.pc = instr.nnn;
             }
 
             0x2000 => {
-                unimplemented!();
+                println!("CALL {}", instr.nnn);
+                self.register.stack[self.register.sp] = self.register.pc as u16;
+                self.register.sp += 1;
+                self.register.pc = instr.nnn;
             }
 
             0x3000 => {
-                if self.register.v[instr.x] as u8 == instr.nn as u8 {
+                println!("SE V[{}], {}", self.register.v[instr.x], instr.nn);
+                if self.register.v[instr.x] == instr.nn {
                     self.register.pc += 4;
+                } else {
+                    self.register.pc += 2;
                 }
             }
 
             0x4000 => {
-                if self.register.v[instr.x] != self.register.v[instr.y] {
+                println!("SNE V[{}], {}", self.register.v[instr.x], instr.nn);
+                if self.register.v[instr.x] != instr.nn {
+                    self.register.pc += 4;
+                } else {
                     self.register.pc += 2;
                 }
             }
 
             0x5000 => {
-                unimplemented!();
-            }
-
+                println!("SE {}, {}", self.register.v[instr.x], self.register.v[instr.y]);
+                 if self.register.v[instr.x] == self.register.v[instr.y] {
+                    self.register.pc += 4;
+                } else {
+                    self.register.pc += 2;
+                }
+            }    
+                 
             0x6000 => {
-                self.register.v[instr.x as usize] = instr.nn as u8;
-                println!("LD V{:#x?}, {:#x?}", instr.x, instr.nn);
+                println!("LD V[{:#x?}], {:#x?}", instr.x, instr.nn);
+                self.register.v[instr.x] = instr.nn;
                 self.register.pc += 2;
             }
 
             0x7000 => {
-                self.register.v[instr.x as usize] += instr.nn as u8;
                 println!("ADD Vx, {:#x?}", instr.nn);
+                self.register.v[instr.x] = (Wrapping(self.register.v[instr.x]) + Wrapping(instr.nn as u8)).0;
                 self.register.pc += 2;
             }
 
             0x8000 => match instr.opcode & 0x000F {
-                0x1 => {}
+                0x0 => {
+                    println!("LD V[{}], V[{}]", self.register.v[instr.x], self.register.v[instr.y]);
+                    self.register.v[instr.x] = self.register.v[instr.y];
+                    self.register.pc += 2;
+                }
 
-                0x2 => {}
+                0x1 => {
+                    println!("OR V[{}], V[{}]", self.register.v[instr.x], self.register.v[instr.y]);
+                    self.register.v[instr.x] |= self.register.v[instr.y];
+                    self.register.pc += 2;
+                }
 
-                0x3 => {}
+                0x2 => {
+                    println!("AND V[{}], V[{}]", self.register.v[instr.x], self.register.v[instr.y]);
+                    self.register.v[instr.x] &= self.register.v[instr.y];
+                    self.register.pc += 2;
+                }
 
-                0x4 => {}
+                0x3 => {
+                    println!("XOR V[{}], V[{}]", self.register.v[instr.x], self.register.v[instr.y]);
+                    self.register.v[instr.x] ^= self.register.v[instr.y];
+                    self.register.pc += 2;
+                }
 
-                0x5 => {}
+                0x4 => {
+                    println!("ADD V[{}], V[{}]", self.register.v[instr.x], self.register.v[instr.y]);
+                    if self.register.v[instr.x].checked_add(self.register.v[instr.y]) == None {
+                        self.register.v[0xF] = 1;
+                    } else {
+                        self.register.v[0xF] = 0;
+                    }
+                    let result = Wrapping(self.register.v[instr.x]) + Wrapping(self.register.v[instr.y]);
+                    self.register.v[instr.x] = result.0;
+                    self.register.pc += 2;
+                }
 
-                0x6 => {}
+                0x5 => {
+                    println!("SUB V[{}], V[{}]", self.register.v[instr.x], self.register.v[instr.y]);
+                    if self.register.v[instr.x] > self.register.v[instr.y] {
+                        self.register.v[0xF] = 1;
+                    } else if self.register.v[instr.x].checked_sub(self.register.v[instr.y]) == None {
+                        self.register.v[0xF] = 0;
+                    }
+                    let result = Wrapping(self.register.v[instr.x]) - Wrapping(self.register.v[instr.y]);
+                    self.register.v[instr.x] = result.0;
+                    self.register.pc += 2;
+                }
 
-                0x7 => {}
+                0x6 => {
+                    println!("SHR V[{}] {{, V[{}]  }}", self.register.v[instr.x], self.register.v[instr.y]);
+                    let tmp = self.register.v[instr.x] & 0x01;
+                    println!("{tmp}");
+                    self.register.v[instr.x] >>= 1;
+                    self.register.v[0xF] = tmp;
+                    self.register.pc += 2;
+                }
 
-                0xE => {}
+                0x7 => {
+                    println!("SUBN V[{}], V[{}]", self.register.v[instr.x], self.register.v[instr.y]);
+
+                    if self.register.v[instr.x] > self.register.v[instr.y] {
+                        self.register.v[0xF] = 1;
+                    } else if self.register.v[instr.y].checked_sub(self.register.v[instr.x]) == None {
+                        self.register.v[0xF] = 0;
+                    }
+
+                    let result = Wrapping(self.register.v[instr.y]) - Wrapping(self.register.v[instr.x]);
+                    self.register.v[instr.x] = result.0;
+                    self.register.pc += 2;
+                }
+
+                0xE => {
+                    println!("SHL V[{}], {{, V[{}]}}", self.register.v[instr.x], self.register.v[instr.y]);
+                    let tmp = self.register.v[instr.x] & 0x01;
+                    self.register.v[instr.x] <<= 1;
+                    self.register.v[0xF] = tmp;
+                    self.register.pc += 2;
+                }
 
                 _ => {}
             },
 
-            0x9000 => {}
+            0x9000 => {
+                println!("SNE {}, {}", self.register.v[instr.x], self.register.v[instr.y]);
+                 if self.register.v[instr.x] != self.register.v[instr.y] {
+                    self.register.pc += 4;
+                } else {
+                    self.register.pc += 2;
+                }
+            }
 
             0xA000 => {
-                self.register.i = instr.address;
-                println!("LD I, {:#x?}", instr.address);
+                println!("LD I, {:#x?}", instr.nnn);
+                self.register.i = instr.nnn;
                 self.register.pc += 2;
             }
 
-            0xB000 => {}
+            0xB000 => {
+                println!("JP {}, {}", self.register.v[0], instr.nnn);
+                self.register.pc = instr.nnn as usize + self.register.v[0] as usize;
+            }
 
             0xC000 => {}
 
@@ -169,6 +259,7 @@ impl Cpu {
                 let x = self.register.v[instr.x as usize];
                 let y = self.register.v[instr.y as usize];
                 let n = instr.opcode & 0x000F;
+                println!("DRW V[{}], V[{}], {}", x, y, n);
                 
                 for height in 0..n {
                     let byte = self.memory.ram[self.register.i + height as usize];
@@ -185,32 +276,32 @@ impl Cpu {
                 self.register.pc += 2;
             }
 
-            0xE000 => match instr.opcode {
-                0xE09E => {}
+            0xE000 => match instr.opcode & 0x00FF{
+                0x9E => {}
 
-                0xE0A1 => {}
+                0xA1 => {}
 
                 _ => {}
             },
 
             0xF000 => match instr.opcode & 0x00FF {
-                0xF007 => {}
+                0x07 => {}
 
-                0xF00A => {}
+                0x0A => {}
 
-                0xF015 => {}
+                0x15 => {}
 
-                0xF018 => {}
+                0x18 => {}
 
-                0xF01E => {}
+                0x1E => {}
 
-                0xF029 => {}
+                0x29 => {}
 
-                0xF033 => {}
+                0x33 => {}
 
-                0xF055 => {}
+                0x55 => {}
 
-                0xF065 => {}
+                0x65 => {}
 
                 _ => {}
             },
