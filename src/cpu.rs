@@ -112,7 +112,8 @@ impl Cpu {
             }
 
             0x3000 => {
-                if self.register.v[instr.x] as u16 == instr.nn as u16 {
+                println!("SE V[{}], {}", self.register.v[instr.x], instr.nn);
+                if self.register.v[instr.x] == instr.nn {
                     self.register.pc += 4;
                 } else {
                     self.register.pc += 2;
@@ -120,7 +121,8 @@ impl Cpu {
             }
 
             0x4000 => {
-                if self.register.v[instr.x] as u16 != instr.nn as u16 {
+                println!("SNE V[{}], {}", self.register.v[instr.x], instr.nn);
+                if self.register.v[instr.x] != instr.nn {
                     self.register.pc += 4;
                 } else {
                     self.register.pc += 2;
@@ -137,14 +139,14 @@ impl Cpu {
             }    
                  
             0x6000 => {
-                println!("LD V{:#x?}, {:#x?}", instr.x, instr.nn);
-                self.register.v[instr.x as usize] = instr.nn as u8;
+                println!("LD V[{:#x?}], {:#x?}", instr.x, instr.nn);
+                self.register.v[instr.x] = instr.nn;
                 self.register.pc += 2;
             }
 
             0x7000 => {
                 println!("ADD Vx, {:#x?}", instr.nn);
-                self.register.v[instr.x] += instr.nn as u8 % 255;
+                self.register.v[instr.x] = (Wrapping(self.register.v[instr.x]) + Wrapping(instr.nn as u8)).0;
                 self.register.pc += 2;
             }
 
