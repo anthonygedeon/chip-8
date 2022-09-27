@@ -199,11 +199,36 @@ impl Cpu {
                     self.register.pc += 2;
                 }
 
-                0x6 => {}
+                0x6 => {
+                    println!("SHR V[{}] {{, V[{}]  }}", self.register.v[instr.x], self.register.v[instr.y]);
+                    let tmp = self.register.v[instr.x] & 0x01;
+                    println!("{tmp}");
+                    self.register.v[instr.x] >>= 1;
+                    self.register.v[0xF] = tmp;
+                    self.register.pc += 2;
+                }
 
-                0x7 => {}
+                0x7 => {
+                    println!("SUBN V[{}], V[{}]", self.register.v[instr.x], self.register.v[instr.y]);
 
-                0xE => {}
+                    if self.register.v[instr.x] > self.register.v[instr.y] {
+                        self.register.v[0xF] = 1;
+                    } else if self.register.v[instr.y].checked_sub(self.register.v[instr.x]) == None {
+                        self.register.v[0xF] = 0;
+                    }
+
+                    let result = Wrapping(self.register.v[instr.y]) - Wrapping(self.register.v[instr.x]);
+                    self.register.v[instr.x] = result.0;
+                    self.register.pc += 2;
+                }
+
+                0xE => {
+                    println!("SHL V[{}], {{, V[{}]}}", self.register.v[instr.x], self.register.v[instr.y]);
+                    let tmp = self.register.v[instr.x] & 0x01;
+                    self.register.v[instr.x] <<= 1;
+                    self.register.v[0xF] = tmp;
+                    self.register.pc += 2;
+                }
 
                 _ => {}
             },
@@ -211,6 +236,8 @@ impl Cpu {
             0x9000 => {
                 println!("SNE {}, {}", self.register.v[instr.x], self.register.v[instr.y]);
                  if self.register.v[instr.x] != self.register.v[instr.y] {
+                    self.register.pc += 4;
+                } else {
                     self.register.pc += 2;
                 }
             }
@@ -249,32 +276,32 @@ impl Cpu {
                 self.register.pc += 2;
             }
 
-            0xE000 => match instr.opcode {
-                0xE09E => {}
+            0xE000 => match instr.opcode & 0x00FF{
+                0x9E => {}
 
-                0xE0A1 => {}
+                0xA1 => {}
 
                 _ => {}
             },
 
             0xF000 => match instr.opcode & 0x00FF {
-                0xF007 => {}
+                0x07 => {}
 
-                0xF00A => {}
+                0x0A => {}
 
-                0xF015 => {}
+                0x15 => {}
 
-                0xF018 => {}
+                0x18 => {}
 
-                0xF01E => {}
+                0x1E => {}
 
-                0xF029 => {}
+                0x29 => {}
 
-                0xF033 => {}
+                0x33 => {}
 
-                0xF055 => {}
+                0x55 => {}
 
-                0xF065 => {}
+                0x65 => {}
 
                 _ => {}
             },
