@@ -100,14 +100,15 @@ impl Cpu {
             }
 
             0x1000 => {
-                println!("JP {:#x?}", instr.address);
-                self.register.pc = instr.address;
+                println!("JP {:#x?}", instr.nnn);
+                self.register.pc = instr.nnn;
             }
 
             0x2000 => {
+                println!("CALL {}", instr.nnn);
                 self.register.stack[self.register.sp] = self.register.pc as u16;
                 self.register.sp += 1;
-                self.register.pc = instr.address;
+                self.register.pc = instr.nnn;
             }
 
             0x3000 => {
@@ -149,21 +150,25 @@ impl Cpu {
 
             0x8000 => match instr.opcode & 0x000F {
                 0x0 => {
+                    println!("LD V[{}], V[{}]", self.register.v[instr.x], self.register.v[instr.y]);
                     self.register.v[instr.x] = self.register.v[instr.y];
                     self.register.pc += 2;
                 }
 
                 0x1 => {
+                    println!("OR V[{}], V[{}]", self.register.v[instr.x], self.register.v[instr.y]);
                     self.register.v[instr.x] |= self.register.v[instr.y];
                     self.register.pc += 2;
                 }
 
                 0x2 => {
+                    println!("AND V[{}], V[{}]", self.register.v[instr.x], self.register.v[instr.y]);
                     self.register.v[instr.x] &= self.register.v[instr.y];
                     self.register.pc += 2;
                 }
 
                 0x3 => {
+                    println!("XOR V[{}], V[{}]", self.register.v[instr.x], self.register.v[instr.y]);
                     self.register.v[instr.x] ^= self.register.v[instr.y];
                     self.register.pc += 2;
                 }
@@ -180,6 +185,7 @@ impl Cpu {
                 }
 
                 0x5 => {
+                    println!("SUB V[{}], V[{}]", self.register.v[instr.x], self.register.v[instr.y]);
                     if self.register.v[instr.x] > self.register.v[instr.y] {
                         self.register.v[0xF] = 1;
                     } else {
@@ -207,13 +213,14 @@ impl Cpu {
             }
 
             0xA000 => {
-                println!("LD I, {:#x?}", instr.address);
-                self.register.i = instr.address;
+                println!("LD I, {:#x?}", instr.nnn);
+                self.register.i = instr.nnn;
                 self.register.pc += 2;
             }
 
             0xB000 => {
-                self.register.pc = instr.address as usize + self.register.v[0] as usize;
+                println!("JP {}, {}", self.register.v[0], instr.nnn);
+                self.register.pc = instr.nnn as usize + self.register.v[0] as usize;
             }
 
             0xC000 => {}
@@ -222,6 +229,7 @@ impl Cpu {
                 let x = self.register.v[instr.x as usize];
                 let y = self.register.v[instr.y as usize];
                 let n = instr.opcode & 0x000F;
+                println!("DRW V[{}], V[{}], {}", x, y, n);
                 
                 for height in 0..n {
                     let byte = self.memory.ram[self.register.i + height as usize];
