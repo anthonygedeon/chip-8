@@ -176,13 +176,14 @@ impl Cpu {
                 }
 
                 0x4 => {
-                    let result = (self.register.v[instr.x] as u16) + (self.register.v[instr.y] as u16) & 0x00FF;
-                    if self.register.v[instr.x] > 255 as u8 {
+                    println!("ADD V[{}], V[{}]", self.register.v[instr.x], self.register.v[instr.y]);
+                    if self.register.v[instr.x].checked_add(self.register.v[instr.y]) == None {
                         self.register.v[0xF] = 1;
                     } else {
                         self.register.v[0xF] = 0;
                     }
-                    self.register.v[instr.x] = result as u8;
+                    let result = Wrapping(self.register.v[instr.x]) + Wrapping(self.register.v[instr.y]);
+                    self.register.v[instr.x] = result.0;
                     self.register.pc += 2;
                 }
 
@@ -190,7 +191,7 @@ impl Cpu {
                     println!("SUB V[{}], V[{}]", self.register.v[instr.x], self.register.v[instr.y]);
                     if self.register.v[instr.x] > self.register.v[instr.y] {
                         self.register.v[0xF] = 1;
-                    } else {
+                    } else if self.register.v[instr.x].checked_sub(self.register.v[instr.y]) == None {
                         self.register.v[0xF] = 0;
                     }
                     let result = Wrapping(self.register.v[instr.x]) - Wrapping(self.register.v[instr.y]);
