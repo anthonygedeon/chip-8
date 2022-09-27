@@ -1,7 +1,7 @@
 use std::num::Wrapping;
 
 use crate::display::Display;
-use crate::memory::{Memory};
+use crate::memory::{Memory, FONT_SET};
 
 pub struct Instruction {
     x: usize, 
@@ -59,6 +59,10 @@ impl Cpu {
        
         if cpu.memory.load_rom("tests/test_opcode.ch8").is_err() {
            panic!("Could not load the binary to memory.");
+        }
+
+        if cpu.memory.load_font(FONT_SET).is_err() {
+           panic!("Could not load the font to memory.");
         }
 
         cpu
@@ -290,7 +294,9 @@ impl Cpu {
                     self.register.pc += 2;
                 }
 
-                0x0A => {}
+                0x0A => {
+                    todo!();
+                }
 
                 0x15 => {
                     self.register.dt = self.register.v[instr.x];
