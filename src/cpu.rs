@@ -285,13 +285,22 @@ impl Cpu {
             },
 
             0xF000 => match instr.opcode & 0x00FF {
-                0x07 => {}
+                0x07 => {
+                    self.register.v[instr.x] = self.register.dt;
+                    self.register.pc += 2;
+                }
 
                 0x0A => {}
 
-                0x15 => {}
+                0x15 => {
+                    self.register.dt = self.register.v[instr.x];
+                    self.register.pc += 2;
+                }
 
-                0x18 => {}
+                0x18 => {
+                    self.register.st = self.register.v[instr.x];
+                    self.register.pc += 2;
+                }
 
                 0x1E => {}
 
