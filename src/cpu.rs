@@ -270,7 +270,10 @@ impl Cpu {
                 self.register.pc = instr.nnn as usize + self.register.v[0] as usize;
             }
 
-            0xC000 => {}
+            0xC000 => {
+                self.register.v[instr.x] = rand() & instr.nn;
+                self.register.pc += 2;
+            }
 
             0xD000 => {
                 let x = self.register.v[instr.x as usize];
