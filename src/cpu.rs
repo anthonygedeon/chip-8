@@ -66,7 +66,7 @@ impl Cpu {
             display: Display { grid: [[0; 64]; 32] },
         };
        
-        if cpu.memory.load_rom("tests/test_opcode.ch8").is_err() {
+        if cpu.memory.load_rom("tests/chip8-test-suite.ch8").is_err() {
            panic!("Could not load the binary to memory.");
         }
 
