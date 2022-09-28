@@ -1,4 +1,5 @@
 use std::num::Wrapping;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::display::Display;
 use crate::keyboard;
@@ -47,6 +48,13 @@ pub struct Cpu {
     pub register: Register, 
     pub memory: Memory, 
     pub display: Display,
+}
+
+fn rand() -> u8 {
+    let sys_time = SystemTime::now();
+    let time = sys_time.duration_since(UNIX_EPOCH).unwrap().as_secs();
+    let value = ((1103515245 * time + 12345) % 2_u64.pow(31)) as u8;
+    value
 }
 
 impl Cpu {
