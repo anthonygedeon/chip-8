@@ -6,47 +6,47 @@ use crate::keyboard;
 use crate::memory::{Memory, FONT_SET};
 
 pub struct Instruction {
-    x: usize, 
+    x: usize,
 
-    y: usize, 
+    y: usize,
 
-    nn: u8, 
+    nn: u8,
 
-    opcode: u16, 
+    opcode: u16,
 
-    nnn: usize, 
+    nnn: usize,
 }
 
 // CHIP-8 Registers, think of these as variables that can be manipualated by the emulator
 #[derive(Default, Debug)]
 pub struct Register {
     // the program counter is essentially a pointer that points to the current instruction
-    // in the CHIP-8 Memory 
-    pc: usize, 
+    // in the CHIP-8 Memory
+    pc: usize,
 
     // the stack pointer points to the word in the stack.
-    sp: usize, 
+    sp: usize,
 
     // special purpose register for delaying the timer
     // when this timer is non-zero i.e { 1.. } then it should be decremented
-    dt: u8, 
+    dt: u8,
 
     // special purpose register for playing sound only when the value is non-zero
-    st: u8, 
-    
+    st: u8,
+
     // stack which is used by the sp register
-    stack: [u16; 16], 
-    
+    stack: [u16; 16],
+
     // general-purpose registers for v[0] - v[16]
     v: [u8; 16],
 
     // general-purpose register which is used to store the memory address
-    i: usize, 
+    i: usize,
 }
 
 pub struct Cpu {
-    pub register: Register, 
-    pub memory: Memory, 
+    pub register: Register,
+    pub memory: Memory,
     pub display: Display,
 }
 
@@ -58,60 +58,62 @@ fn rand() -> u8 {
 }
 
 impl Cpu {
-
     pub fn new() -> Self {
         let mut cpu = Self {
-            register: Register { pc: 0x200, ..Default::default() }, 
+            register: Register {
+                pc: 0x200,
+                ..Default::default()
+            },
             memory: Memory::new(),
-            display: Display { grid: [[0; 64]; 32] },
+            display: Display {
+                grid: [[0; 64]; 32],
+            },
         };
-       
+
         if cpu.memory.load_rom("tests/chip8-test-suite.ch8").is_err() {
-           panic!("Could not load the binary to memory.");
+            panic!("Could not load the binary to memory.");
         }
 
         if cpu.memory.load_font(FONT_SET).is_err() {
-           panic!("Could not load the font to memory.");
+            panic!("Could not load the font to memory.");
         }
 
         cpu
     }
 
     fn get_opcode(&self) -> u16 {
-        (self.memory.ram[self.register.pc] << 8) | (self.memory.ram[self.register.pc + 1]) 
+        (self.memory.ram[self.register.pc] << 8) | (self.memory.ram[self.register.pc + 1])
     }
 
     fn fetch(&mut self) -> Instruction {
         let opcode = self.get_opcode();
         Instruction {
-            opcode, 
-            x: ((opcode >> 8) & 0x000F) as usize, 
-            y: ((opcode >> 4) & 0x000F) as usize, 
-            nn: (opcode & 0x00FF) as u8, 
+            opcode,
+            x: ((opcode >> 8) & 0x000F) as usize,
+            y: ((opcode >> 4) & 0x000F) as usize,
+            nn: (opcode & 0x00FF) as u8,
             nnn: (opcode & 0x0FFF) as usize,
-        } 
+        }
     }
 
     fn decode(&mut self, instr: Instruction) {
         println!("PC: {:X}", self.register.pc);
         match instr.opcode & 0xF000 {
-            0x0000 => {
-                match instr.opcode & 0x00FF {
-                    0xE0 => {
-                        println!("CLS");
-                        self.display.clear();
-                        self.register.pc += 2;
-                    }
-
-                    0xEE => {
-                        println!("RET");
-                        self.register.sp -= 1;
-                        self.register.pc = self.register.stack[self.register.sp] as usize;
-                        self.register.pc += 2;
-                    }
-                    _ => {}
+            0x0000 => match instr.opcode & 0x00FF {
+                0xE0 => {
+                    println!("CLS");
+                    self.display.clear();
+                    self.register.pc += 2;
                 }
-            }
+
+                0xEE => {
+                    println!("RET");
+                    self.register.sp -= 1;
+                    self.register.pc = self.register.stack[self.register.sp] as usize;
+                    self.register.pc += 2;
+                }
+                _ => {}
+            },
 
             0x1000 => {
                 println!("0x{:X} JP nnn={:#x?}", instr.opcode, instr.nnn);
@@ -124,10 +126,13 @@ impl Cpu {
                 self.register.sp += 1;
                 self.register.pc = instr.nnn;
             }
-    
+
             // SKIP
             0x3000 => {
-                println!("0x{:X?} SE V[{}], {}", instr.opcode, self.register.v[instr.x], instr.nn);
+                println!(
+                    "0x{:X?} SE V[{}], {}",
+                    instr.opcode, self.register.v[instr.x], instr.nn
+                );
                 if self.register.v[instr.x] == instr.nn {
                     self.register.pc += 4;
                 } else {
@@ -136,7 +141,10 @@ impl Cpu {
             }
 
             0x4000 => {
-                println!("0x{:X?} SNE V[{}], {}", instr.opcode, self.register.v[instr.x], instr.nn);
+                println!(
+                    "0x{:X?} SNE V[{}], {}",
+                    instr.opcode, self.register.v[instr.x], instr.nn
+                );
                 if self.register.v[instr.x] != instr.nn {
                     self.register.pc += 4;
                 } else {
@@ -145,88 +153,122 @@ impl Cpu {
             }
 
             0x5000 => {
-                println!("0x{:X?} SE {}, {}", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
-                 if self.register.v[instr.x] == self.register.v[instr.y] {
-                    self.register.pc += 4;
-                } else {
-                    self.register.pc += 2;
-                }
-            }    
-
-            // BUG: possible bug that is causing fx55 to draw later
-            0x9000 => {
-                println!("0x{:X?} SNE {}, {}", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
-                 if self.register.v[instr.x] != self.register.v[instr.y] {
+                println!(
+                    "0x{:X?} SE {}, {}",
+                    instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
+                );
+                if self.register.v[instr.x] == self.register.v[instr.y] {
                     self.register.pc += 4;
                 } else {
                     self.register.pc += 2;
                 }
             }
-            
+
+            // BUG: possible bug that is causing fx55 to draw later
+            0x9000 => {
+                println!(
+                    "0x{:X?} SNE {}, {}",
+                    instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
+                );
+                if self.register.v[instr.x] != self.register.v[instr.y] {
+                    self.register.pc += 4;
+                } else {
+                    self.register.pc += 2;
+                }
+            }
+
             // BUG: possible bug that is causing fx55 to draw later
             0x6000 => {
-                println!("0x{:X} LD V[{:#x?}], {:#x?}", instr.opcode, instr.x, instr.nn);
+                println!(
+                    "0x{:X} LD V[{:#x?}], {:#x?}",
+                    instr.opcode, instr.x, instr.nn
+                );
                 self.register.v[instr.x] = instr.nn;
                 self.register.pc += 2;
             }
 
             0x7000 => {
                 println!("0x{:X?} ADD Vx, {:#x?}", instr.opcode, instr.nn);
-                self.register.v[instr.x] = (Wrapping(self.register.v[instr.x]) + Wrapping(instr.nn as u8)).0;
+                self.register.v[instr.x] =
+                    (Wrapping(self.register.v[instr.x]) + Wrapping(instr.nn as u8)).0;
                 self.register.pc += 2;
             }
 
             0x8000 => match instr.opcode & 0x000F {
                 0x0 => {
-                    println!("0x{:X?} LD V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
+                    println!(
+                        "0x{:X?} LD V[{}], V[{}]",
+                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
+                    );
                     self.register.v[instr.x] = self.register.v[instr.y];
                     self.register.pc += 2;
                 }
 
                 0x1 => {
-                    println!("0x{:X?}, OR V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
+                    println!(
+                        "0x{:X?}, OR V[{}], V[{}]",
+                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
+                    );
                     self.register.v[instr.x] |= self.register.v[instr.y];
                     self.register.pc += 2;
                 }
 
                 0x2 => {
-                    println!("0x{:X?} AND V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
+                    println!(
+                        "0x{:X?} AND V[{}], V[{}]",
+                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
+                    );
                     self.register.v[instr.x] &= self.register.v[instr.y];
                     self.register.pc += 2;
                 }
 
                 0x3 => {
-                    println!("0x{:X?} XOR V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
+                    println!(
+                        "0x{:X?} XOR V[{}], V[{}]",
+                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
+                    );
                     self.register.v[instr.x] ^= self.register.v[instr.y];
                     self.register.pc += 2;
                 }
 
                 0x4 => {
-                    println!("0x{:X?} ADD V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
+                    println!(
+                        "0x{:X?} ADD V[{}], V[{}]",
+                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
+                    );
                     if self.register.v[instr.x].checked_add(self.register.v[instr.y]) == None {
                         self.register.v[0xF] = 1;
                     } else {
                         self.register.v[0xF] = 0;
                     }
-                    let result = Wrapping(self.register.v[instr.x]) + Wrapping(self.register.v[instr.y]);
+                    let result =
+                        Wrapping(self.register.v[instr.x]) + Wrapping(self.register.v[instr.y]);
                     self.register.v[instr.x] = result.0;
                     self.register.pc += 2;
                 }
 
                 0x5 => {
-                    println!("0x{:X?} SUB V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
+                    println!(
+                        "0x{:X?} SUB V[{}], V[{}]",
+                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
+                    );
                     if self.register.v[instr.x] > self.register.v[instr.y] {
                         self.register.v[0xF] = 1;
-                    } else if self.register.v[instr.x].checked_sub(self.register.v[instr.y]) == None {
+                    } else if self.register.v[instr.x].checked_sub(self.register.v[instr.y]) == None
+                    {
                         self.register.v[0xF] = 0;
                     }
-                    let result = Wrapping(self.register.v[instr.x]) - Wrapping(self.register.v[instr.y]);
+                    let result =
+                        Wrapping(self.register.v[instr.x]) - Wrapping(self.register.v[instr.y]);
                     self.register.v[instr.x] = result.0;
                     self.register.pc += 2;
                 }
 
                 0x6 => {
-                    println!("0x{:X?} SHR V[{}] {{, V[{}]}}", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
+                    println!(
+                        "0x{:X?} SHR V[{}] {{, V[{}]}}",
+                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
+                    );
                     let tmp = self.register.v[instr.x] & 0x01;
                     self.register.v[instr.x] >>= 1;
                     self.register.v[0xF] = tmp;
@@ -234,21 +276,29 @@ impl Cpu {
                 }
 
                 0x7 => {
-                    println!("0x{:X?} SUBN V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
+                    println!(
+                        "0x{:X?} SUBN V[{}], V[{}]",
+                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
+                    );
 
                     if self.register.v[instr.x] > self.register.v[instr.y] {
                         self.register.v[0xF] = 1;
-                    } else if self.register.v[instr.y].checked_sub(self.register.v[instr.x]) == None {
+                    } else if self.register.v[instr.y].checked_sub(self.register.v[instr.x]) == None
+                    {
                         self.register.v[0xF] = 0;
                     }
 
-                    let result = Wrapping(self.register.v[instr.y]) - Wrapping(self.register.v[instr.x]);
+                    let result =
+                        Wrapping(self.register.v[instr.y]) - Wrapping(self.register.v[instr.x]);
                     self.register.v[instr.x] = result.0;
                     self.register.pc += 2;
                 }
 
                 0xE => {
-                    println!("0x{:X?} SHL V[{}], {{, V[{}]}}", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
+                    println!(
+                        "0x{:X?} SHL V[{}], {{, V[{}]}}",
+                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
+                    );
                     let tmp = self.register.v[instr.x] & 0x01;
                     self.register.v[instr.x] <<= 1;
                     self.register.v[0xF] = tmp;
@@ -258,7 +308,6 @@ impl Cpu {
                 _ => {}
             },
 
-
             0xA000 => {
                 println!("0x{:X?} LD I, {:#x?}", instr.opcode, instr.nnn);
                 self.register.i = instr.nnn;
@@ -266,7 +315,10 @@ impl Cpu {
             }
 
             0xB000 => {
-                println!("0x{:X?} JP {}, {}", instr.opcode, self.register.v[0], instr.nnn);
+                println!(
+                    "0x{:X?} JP {}, {}",
+                    instr.opcode, self.register.v[0], instr.nnn
+                );
                 self.register.pc = instr.nnn as usize + self.register.v[0] as usize;
             }
 
@@ -280,11 +332,11 @@ impl Cpu {
                 let y = self.register.v[instr.y as usize];
                 let n = instr.opcode & 0x000F;
                 println!("0x{:X?} DRW V[{}], V[{}], {}", instr.opcode, x, y, n);
-                
+
                 for height in 0..n {
                     let byte = self.memory.ram[self.register.i + height as usize];
                     for width in 0..=7 {
-                        let pixel = (((byte<<width) & 0x80) >> 7) as u8;
+                        let pixel = (((byte << width) & 0x80) >> 7) as u8;
                         self.display.set_pos(height as u8 + y, width + x, pixel);
                         if self.display.get_pos(y, x) == 1 {
                             self.register.v[0xF] = 0x01;
@@ -310,7 +362,10 @@ impl Cpu {
 
             0xF000 => match instr.opcode & 0x00FF {
                 0x07 => {
-                    println!("0x{:X?} LD V[{}], DT={}", instr.opcode, self.register.v[instr.x], self.register.dt);
+                    println!(
+                        "0x{:X?} LD V[{}], DT={}",
+                        instr.opcode, self.register.v[instr.x], self.register.dt
+                    );
                     self.register.v[instr.x] = self.register.dt;
                     self.register.pc += 2;
                 }
@@ -320,50 +375,71 @@ impl Cpu {
                 }
 
                 0x15 => {
-                    println!("0x{:X?} LD DT={}, V[{}]", instr.opcode, self.register.dt, self.register.v[instr.x]);
+                    println!(
+                        "0x{:X?} LD DT={}, V[{}]",
+                        instr.opcode, self.register.dt, self.register.v[instr.x]
+                    );
                     self.register.dt = self.register.v[instr.x];
                     self.register.pc += 2;
                 }
 
                 0x18 => {
-                    println!("0x{:X?} LD ST={}, V[{}]", instr.opcode, self.register.st, self.register.v[instr.x]);
+                    println!(
+                        "0x{:X?} LD ST={}, V[{}]",
+                        instr.opcode, self.register.st, self.register.v[instr.x]
+                    );
                     self.register.st = self.register.v[instr.x];
                     self.register.pc += 2;
                 }
 
                 0x1E => {
-                    println!("0x{:X?} ADD I={}, V[{}]", instr.opcode, self.register.i, self.register.v[instr.x]);
+                    println!(
+                        "0x{:X?} ADD I={}, V[{}]",
+                        instr.opcode, self.register.i, self.register.v[instr.x]
+                    );
                     self.register.i += self.register.v[instr.x] as usize;
                     self.register.pc += 2;
                 }
 
                 0x29 => {
-                    println!("0x{:X?} LD F={}, V[{}]", instr.opcode, self.memory.ram[0x50], self.register.v[instr.x]);
-                    self.register.i = self.memory.ram[0x50] as usize; 
+                    println!(
+                        "0x{:X?} LD F={}, V[{}]",
+                        instr.opcode, self.memory.ram[0x50], self.register.v[instr.x]
+                    );
+                    self.register.i = self.memory.ram[0x50] as usize;
                     self.register.pc += 2;
                 }
 
                 0x33 => {
                     let v_byte = self.register.v[instr.x];
-                    println!("0x{:X?} LD B={}, V[{}]", instr.opcode, self.memory.ram[self.register.i], v_byte);
-                    self.memory.ram[self.register.i]   = (v_byte / 100 % 10) as u16;
-                    self.memory.ram[self.register.i+1] = (v_byte / 10 % 10) as u16;
-                    self.memory.ram[self.register.i+2] = (v_byte / 1 % 10) as u16;
+                    println!(
+                        "0x{:X?} LD B={}, V[{}]",
+                        instr.opcode, self.memory.ram[self.register.i], v_byte
+                    );
+                    self.memory.ram[self.register.i] = (v_byte / 100 % 10) as u16;
+                    self.memory.ram[self.register.i + 1] = (v_byte / 10 % 10) as u16;
+                    self.memory.ram[self.register.i + 2] = (v_byte / 1 % 10) as u16;
                     self.register.pc += 2;
                 }
 
                 0x55 => {
-                    println!("0x{:X?} LD I=[{}], V[{}]", instr.opcode, self.register.i, self.register.v[instr.x]);
+                    println!(
+                        "0x{:X?} LD I=[{}], V[{}]",
+                        instr.opcode, self.register.i, self.register.v[instr.x]
+                    );
                     for i in 0..=15 {
-                        self.memory.ram[self.register.i+i] = self.register.v[i] as u16;
+                        self.memory.ram[self.register.i + i] = self.register.v[i] as u16;
                     }
                     self.register.pc += 2;
                 }
 
                 0x65 => {
-                    println!("0x{:X?} LD V[{}], I=[{}]", instr.opcode, self.register.v[instr.x], self.register.i);
+                    println!(
+                        "0x{:X?} LD V[{}], I=[{}]",
+                        instr.opcode, self.register.v[instr.x], self.register.i
+                    );
                     for i in 0..=15 {
-                        self.register.v[i] = self.memory.ram[self.register.i+i] as u8;
+                        self.register.v[i] = self.memory.ram[self.register.i + i] as u8;
                     }
                     self.register.pc += 2;
                 }
@@ -372,11 +448,11 @@ impl Cpu {
             },
 
             _ => {}
-        }    
+        }
     }
 
     pub fn cycle(&mut self) {
         let instruction = self.fetch();
-        self.decode(instruction) 
+        self.decode(instruction)
     }
 }

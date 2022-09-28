@@ -17,7 +17,7 @@ pub const FONT_SET: [u8; 80] = [
     0xF0, 0x80, 0x80, 0x80, 0xF0, // C
     0xE0, 0x90, 0x90, 0x90, 0xE0, // D
     0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
-    0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+    0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
 
 /// The amount of memory that the CHIP-8 can hold
@@ -34,12 +34,12 @@ pub struct Memory {
 
 impl Memory {
     pub fn new() -> Self {
-       Self { ram: [0; MAX_RAM] } 
+        Self { ram: [0; MAX_RAM] }
     }
 
     pub fn load_font(&mut self, font_set: [u8; 80]) -> io::Result<()> {
         for i in 0..FONT_SET.len() {
-            self.ram[i+0x50] = font_set[i] as u16;
+            self.ram[i + 0x50] = font_set[i] as u16;
         }
 
         Ok(())
