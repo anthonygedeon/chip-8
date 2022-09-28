@@ -1,6 +1,7 @@
 use std::num::Wrapping;
 
 use crate::display::Display;
+use crate::keyboard;
 use crate::memory::{Memory, FONT_SET};
 
 pub struct Instruction {
