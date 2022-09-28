@@ -296,43 +296,77 @@ impl Cpu {
                 self.register.pc += 2;
             }
 
-            0xE000 => match instr.opcode & 0x00FF{
-                0x9E => {}
+            0xE000 => match instr.opcode & 0x00FF {
+                0x9E => {
+                    //todo!();
+                }
 
-                0xA1 => {}
+                0xA1 => {
+                    //todo!();
+                }
 
                 _ => {}
             },
 
             0xF000 => match instr.opcode & 0x00FF {
                 0x07 => {
+                    println!("0x{:X?} LD V[{}], DT={}", instr.opcode, self.register.v[instr.x], self.register.dt);
                     self.register.v[instr.x] = self.register.dt;
                     self.register.pc += 2;
                 }
 
                 0x0A => {
-                    todo!();
+                    //todo!();
                 }
 
                 0x15 => {
+                    println!("0x{:X?} LD DT={}, V[{}]", instr.opcode, self.register.dt, self.register.v[instr.x]);
                     self.register.dt = self.register.v[instr.x];
                     self.register.pc += 2;
                 }
 
                 0x18 => {
+                    println!("0x{:X?} LD ST={}, V[{}]", instr.opcode, self.register.st, self.register.v[instr.x]);
                     self.register.st = self.register.v[instr.x];
                     self.register.pc += 2;
                 }
 
-                0x1E => {}
+                0x1E => {
+                    println!("0x{:X?} ADD I={}, V[{}]", instr.opcode, self.register.i, self.register.v[instr.x]);
+                    self.register.i += self.register.v[instr.x] as usize;
+                    self.register.pc += 2;
+                }
 
-                0x29 => {}
+                0x29 => {
+                    println!("0x{:X?} LD F={}, V[{}]", instr.opcode, self.memory.ram[0x50], self.register.v[instr.x]);
+                    self.register.i = self.memory.ram[0x50] as usize; 
+                    self.register.pc += 2;
+                }
 
-                0x33 => {}
+                0x33 => {
+                    let v_byte = self.register.v[instr.x];
+                    println!("0x{:X?} LD B={}, V[{}]", instr.opcode, self.memory.ram[self.register.i], v_byte);
+                    self.memory.ram[self.register.i]   = (v_byte / 100 % 10) as u16;
+                    self.memory.ram[self.register.i+1] = (v_byte / 10 % 10) as u16;
+                    self.memory.ram[self.register.i+2] = (v_byte / 1 % 10) as u16;
+                    self.register.pc += 2;
+                }
 
-                0x55 => {}
+                0x55 => {
+                    println!("0x{:X?} LD I=[{}], V[{}]", instr.opcode, self.register.i, self.register.v[instr.x]);
+                    for i in 0..=15 {
+                        self.memory.ram[self.register.i+i] = self.register.v[i] as u16;
+                    }
+                    self.register.pc += 2;
+                }
 
-                0x65 => {}
+                0x65 => {
+                    println!("0x{:X?} LD V[{}], I=[{}]", instr.opcode, self.register.v[instr.x], self.register.i);
+                    for i in 0..=15 {
+                        self.register.v[i] = self.memory.ram[self.register.i+i] as u8;
+                    }
+                    self.register.pc += 2;
+                }
 
                 _ => {}
             },
