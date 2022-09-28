@@ -7,6 +7,7 @@ use sdl2::pixels::{Color, PixelFormatEnum};
 use std::thread;
 use std::time::Duration;
 
+mod keyboard;
 mod memory;
 mod display;
 mod cpu;
@@ -74,24 +75,19 @@ fn main() -> Result<(), String> {
                 Event::Quit { .. } | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => break 'running,
                 Event::KeyDown { keycode: Some(Keycode::Num1), .. } => (), 
                 Event::KeyDown { keycode: Some(Keycode::Num2), .. } => (), 
-                Event::KeyDown { keycode: Some(Keycode::Num3), .. } => (),  
-                Event::KeyDown { keycode: Some(Keycode::Num4), .. } => (),  
-                Event::KeyDown { keycode: Some(Keycode::Num5), .. } => (),  
-                Event::KeyDown { keycode: Some(Keycode::Num6), .. } => (),  
-                Event::KeyDown { keycode: Some(Keycode::Num7), .. } => (),  
-                Event::KeyDown { keycode: Some(Keycode::Num9), .. } => (),  
-                Event::KeyDown { keycode: Some(Keycode::Q), .. } => (),  
-                Event::KeyDown { keycode: Some(Keycode::W), .. } => (), 
-                Event::KeyDown { keycode: Some(Keycode::E), .. } => (), 
-                Event::KeyDown { keycode: Some(Keycode::R), .. } => (), 
-                Event::KeyDown { keycode: Some(Keycode::A), .. } => (), 
-                Event::KeyDown { keycode: Some(Keycode::S), .. } => (), 
-                Event::KeyDown { keycode: Some(Keycode::D), .. } => (), 
-                Event::KeyDown { keycode: Some(Keycode::F), .. } => (), 
-                Event::KeyDown { keycode: Some(Keycode::Z), .. } => (), 
-                Event::KeyDown { keycode: Some(Keycode::X), .. } => (), 
-                Event::KeyDown { keycode: Some(Keycode::C), .. } => (), 
-                Event::KeyDown { keycode: Some(Keycode::V), .. } => (), 
+                Event::KeyDown { keycode: Some(Keycode::Num3), .. } => (), 
+                Event::KeyDown { keycode: Some(Keycode::Num4), .. } => (), 
+                Event::KeyDown { keycode: Some(Keycode::Num5), .. } => (), 
+                Event::KeyDown { keycode: Some(Keycode::Num6), .. } => (), 
+                Event::KeyDown { keycode: Some(Keycode::Num7), .. } => (), 
+                Event::KeyDown { keycode: Some(Keycode::Num8), .. } => (), 
+                Event::KeyDown { keycode: Some(Keycode::Num9), .. } => (), 
+                Event::KeyDown { keycode: Some(Keycode::A), .. } => (),
+                Event::KeyDown { keycode: Some(Keycode::B), .. } => (),
+                Event::KeyDown { keycode: Some(Keycode::C), .. } => (),
+                Event::KeyDown { keycode: Some(Keycode::D), .. } => (),
+                Event::KeyDown { keycode: Some(Keycode::E), .. } => (),
+                Event::KeyDown { keycode: Some(Keycode::F), .. } => (),
                 _ => {}
             }
         }
