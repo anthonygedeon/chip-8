@@ -166,7 +166,6 @@ impl Cpu {
                 }
             }    
 
-            // BUG: possible bug that is causing fx55 to draw later
             0x9000 => {
                 println!("0x{:X?} SNE {}, {}", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
                  if self.register.v[instr.x] != self.register.v[instr.y] {
@@ -176,7 +175,6 @@ impl Cpu {
                 }
             }
             
-            // BUG: possible bug that is causing fx55 to draw later
             0x6000 => {
                 println!("0x{:X} LD V[{:#x?}], {:#x?}", instr.opcode, instr.x, instr.nn);
                 self.register.v[instr.x] = instr.nn;
@@ -213,20 +211,23 @@ impl Cpu {
                     self.register.v[instr.x] ^= self.register.v[instr.y];
                     self.register.pc += 2;
                 }
-
+                
                 0x4 => {
                     println!("0x{:X?} ADD V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
                     if self.register.v[instr.x].checked_add(self.register.v[instr.y]) == None {
+                        self.register.v[instr.x] = self.register.v[instr.x].wrapping_add(self.register.v[instr.y]);
                         self.register.v[0xF] = 1;
                     } else {
+                        self.register.v[instr.x] = self.register.v[instr.x].wrapping_add(self.register.v[instr.y]);
                         self.register.v[0xF] = 0;
                     }
-                    self.register.v[instr.x] = self.register.v[instr.x].wrapping_add(self.register.v[instr.y]);
                     self.register.pc += 2;
                 }
 
                 0x5 => {
                     println!("0x{:X?} SUB V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
+
+                    self.register.v[instr.x] = self.register.v[instr.x].wrapping_sub(self.register.v[instr.y]);
 
                     if self.register.v[instr.x] > self.register.v[instr.y] {
                         self.register.v[0xF] = 1;
@@ -234,7 +235,7 @@ impl Cpu {
                         self.register.v[0xF] = 0;
                     }
 
-                    self.register.v[instr.x] = self.register.v[instr.x].wrapping_sub(self.register.v[instr.y]);
+
                     self.register.pc += 2;
                 }
 
@@ -249,25 +250,26 @@ impl Cpu {
                 0x7 => {
                     println!("0x{:X?} SUBN V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
 
-                    if self.register.v[instr.x] > self.register.v[instr.y] {
+                    self.register.v[instr.x] = self.register.v[instr.y].wrapping_sub(self.register.v[instr.x]);
+
+                    if self.register.v[instr.x] < self.register.v[instr.y] {
                         self.register.v[0xF] = 1;
                     } else if self.register.v[instr.y].checked_sub(self.register.v[instr.x]) == None {
                         self.register.v[0xF] = 0;
                     }
 
-                    self.register.v[instr.x] = self.register.v[instr.y].wrapping_sub(self.register.v[instr.x]);
                     self.register.pc += 2;
                 }
 
                 0xE => {
                     println!("0x{:X?} SHL V[{}], {{, V[{}]}}", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
-                    let tmp = self.register.v[instr.x] & 0x01;
+                    let bit = (self.register.v[instr.x] & 0x80) >> 7;
                     self.register.v[instr.x] <<= 1;
-                    self.register.v[0xF] = tmp;
+                    self.register.v[0xF] = bit;
                     self.register.pc += 2;
                 }
 
-                _ => {}
+                _ => unreachable!()
             },
 
 
@@ -342,9 +344,7 @@ impl Cpu {
                         if self.keyboard.is_pressed() {
                             self.register.v[instr.x] = self.keyboard.key;
                             self.register.pc += 2;
-                        } else {
-                            self.register.pc -= 2;
-                        }
+                        }                 
                 }
 
                 0x15 => {
