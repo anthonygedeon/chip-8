@@ -61,13 +61,13 @@ fn main() -> Result<(), String> {
                     ..
                 } => cpu.keyboard.set_keypress(0x3),
                 Event::KeyDown {
-                    keycode: Some(Keycode::Num4),
+                    keycode: Some(Keycode::Q),
                     ..
-                } => (),
+                } => cpu.keyboard.set_keypress(0x4),
                 Event::KeyDown {
-                    keycode: Some(Keycode::Num5),
+                    keycode: Some(Keycode::W),
                     ..
-                } => (),
+                } => cpu.keyboard.set_keypress(0x5),
                 Event::KeyDown {
                     keycode: Some(Keycode::Num6),
                     ..
@@ -110,6 +110,24 @@ fn main() -> Result<(), String> {
                 } => (),
                 Event::KeyUp {
                     keycode: Some(Keycode::Num1),
+                   ..  
+                } => cpu.keyboard.set_keypress(0), 
+
+                Event::KeyUp {
+                    keycode: Some(Keycode::Num2),
+                   ..  
+                } => cpu.keyboard.set_keypress(0), 
+
+                Event::KeyUp {
+                    keycode: Some(Keycode::Num3),
+                   ..  
+                } => cpu.keyboard.set_keypress(0), 
+                Event::KeyUp {
+                    keycode: Some(Keycode::Q),
+                   ..  
+                } => cpu.keyboard.set_keypress(0), 
+                Event::KeyUp {
+                    keycode: Some(Keycode::W),
                    ..  
                 } => cpu.keyboard.set_keypress(0), 
                 _ => {}
