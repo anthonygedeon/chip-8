@@ -30,48 +30,17 @@ fn main() -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
-    let texture_creator = canvas.texture_creator();
 
-    let mut texture = texture_creator
-        .create_texture_streaming(PixelFormatEnum::RGB24, 256, 256)
-        .map_err(|e| e.to_string())?;
-
-    let mut texture2 = texture_creator
-        .create_texture_streaming(PixelFormatEnum::RGB24, 256, 256)
-        .map_err(|e| e.to_string())?;
-
-    // create white texture
-    texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
-        for y in 0..256 {
-            for x in 0..256 {
-                let offset = y * pitch + x * 3;
-                buffer[offset] = 255;
-                buffer[offset + 1] = 255;
-                buffer[offset + 2] = 255;
-            }
-        }
-    })?;
-
-    // create black texture
-    texture2.with_lock(None, |buffer: &mut [u8], pitch: usize| {
-        for y in 0..256 {
-            for x in 0..256 {
-                let offset = y * pitch + x * 3;
-                buffer[offset] = 0;
-                buffer[offset + 1] = 0;
-                buffer[offset + 2] = 0;
-            }
-        }
-    })?;
-
-    canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas
         .set_scale(WINDOW_WIDTH as f32 / 64.0, WINDOW_HEIGHT as f32 / 32.0)
         .expect("could not scale window");
-    canvas.clear();
 
     let mut event_pump = sdl_context.event_pump()?;
     'running: loop {
+
+        canvas.set_draw_color(Color::RGB(0, 0, 0));
+        canvas.clear();
+
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. }
@@ -148,24 +117,27 @@ fn main() -> Result<(), String> {
         }
 
         cpu.cycle();
-        canvas.present();
-
+        
         for (i, row) in cpu.display.grid.iter().enumerate() {
             for (j, _) in row.iter().enumerate() {
                 let rectangle = sdl2::rect::Rect::new(j as i32, i as i32, 10, 10);
 
                 // draw white cell
                 if cpu.display.grid[i][j] == 1 {
-                    canvas.copy(&texture, None, Some(rectangle))?;
-
+                    canvas.set_draw_color(Color::RGB(255, 255, 255));
+                    canvas.draw_rect(rectangle)?;
+               
                 // draw black cell
                 } else if cpu.display.grid[i][j] == 0 {
-                    canvas.copy(&texture2, None, Some(rectangle))?;
+                    canvas.set_draw_color(Color::RGB(0, 0, 0));
+                    canvas.draw_rect(rectangle)?;
                 }
             }
         }
 
-        thread::sleep(Duration::new(0, 1_000_000_000u32 / 30));
+        canvas.present();
+
+        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 250));
     }
 
     Ok(())
