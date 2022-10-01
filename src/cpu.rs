@@ -310,11 +310,21 @@ impl Cpu {
 
             0xE000 => match instr.opcode & 0x00FF {
                 0x9E => {
-                    //todo!();
-                }
+                    println!("SKP Vx={}", self.register.v[instr.x]);
+                    if self.keyboard.key == self.register.v[instr.x] {
+                        self.register.pc += 4;
+                    } else {
+                        self.register.pc += 2;
+                    }
+               }
 
                 0xA1 => {
-                    //todo!();
+                    println!("SKNP Vx={}", self.register.v[instr.x]);
+                    if self.keyboard.key != self.register.v[instr.x] {
+                        self.register.pc += 4;
+                    } else {
+                        self.register.pc += 2;
+                    }
                 }
 
                 _ => {}
