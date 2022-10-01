@@ -158,122 +158,88 @@ impl Cpu {
             }
 
             0x5000 => {
-                println!(
-                    "0x{:X?} SE {}, {}",
-                    instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
-                );
-                if self.register.v[instr.x] == self.register.v[instr.y] {
+                println!("0x{:X?} SE {}, {}", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
+                 if self.register.v[instr.x] == self.register.v[instr.y] {
                     self.register.pc += 4;
                 } else {
                     self.register.pc += 2;
                 }
-            }
+            }    
 
             // BUG: possible bug that is causing fx55 to draw later
             0x9000 => {
-                println!(
-                    "0x{:X?} SNE {}, {}",
-                    instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
-                );
-                if self.register.v[instr.x] != self.register.v[instr.y] {
+                println!("0x{:X?} SNE {}, {}", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
+                 if self.register.v[instr.x] != self.register.v[instr.y] {
                     self.register.pc += 4;
                 } else {
                     self.register.pc += 2;
                 }
             }
-
+            
             // BUG: possible bug that is causing fx55 to draw later
             0x6000 => {
-                println!(
-                    "0x{:X} LD V[{:#x?}], {:#x?}",
-                    instr.opcode, instr.x, instr.nn
-                );
+                println!("0x{:X} LD V[{:#x?}], {:#x?}", instr.opcode, instr.x, instr.nn);
                 self.register.v[instr.x] = instr.nn;
                 self.register.pc += 2;
             }
 
             0x7000 => {
                 println!("0x{:X?} ADD Vx, {:#x?}", instr.opcode, instr.nn);
-                self.register.v[instr.x] =
-                    (Wrapping(self.register.v[instr.x]) + Wrapping(instr.nn as u8)).0;
+                self.register.v[instr.x] = self.register.v[instr.x].wrapping_add(instr.nn as u8);
                 self.register.pc += 2;
             }
 
             0x8000 => match instr.opcode & 0x000F {
                 0x0 => {
-                    println!(
-                        "0x{:X?} LD V[{}], V[{}]",
-                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
-                    );
+                    println!("0x{:X?} LD V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
                     self.register.v[instr.x] = self.register.v[instr.y];
                     self.register.pc += 2;
                 }
 
                 0x1 => {
-                    println!(
-                        "0x{:X?}, OR V[{}], V[{}]",
-                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
-                    );
+                    println!("0x{:X?}, OR V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
                     self.register.v[instr.x] |= self.register.v[instr.y];
                     self.register.pc += 2;
                 }
 
                 0x2 => {
-                    println!(
-                        "0x{:X?} AND V[{}], V[{}]",
-                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
-                    );
+                    println!("0x{:X?} AND V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
                     self.register.v[instr.x] &= self.register.v[instr.y];
                     self.register.pc += 2;
                 }
 
                 0x3 => {
-                    println!(
-                        "0x{:X?} XOR V[{}], V[{}]",
-                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
-                    );
+                    println!("0x{:X?} XOR V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
                     self.register.v[instr.x] ^= self.register.v[instr.y];
                     self.register.pc += 2;
                 }
 
                 0x4 => {
-                    println!(
-                        "0x{:X?} ADD V[{}], V[{}]",
-                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
-                    );
+                    println!("0x{:X?} ADD V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
                     if self.register.v[instr.x].checked_add(self.register.v[instr.y]) == None {
                         self.register.v[0xF] = 1;
                     } else {
                         self.register.v[0xF] = 0;
                     }
-                    let result =
-                        Wrapping(self.register.v[instr.x]) + Wrapping(self.register.v[instr.y]);
-                    self.register.v[instr.x] = result.0;
+                    self.register.v[instr.x] = self.register.v[instr.x].wrapping_add(self.register.v[instr.y]);
                     self.register.pc += 2;
                 }
 
                 0x5 => {
-                    println!(
-                        "0x{:X?} SUB V[{}], V[{}]",
-                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
-                    );
+                    println!("0x{:X?} SUB V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
+
                     if self.register.v[instr.x] > self.register.v[instr.y] {
                         self.register.v[0xF] = 1;
-                    } else if self.register.v[instr.x].checked_sub(self.register.v[instr.y]) == None
-                    {
+                    } else if self.register.v[instr.x].checked_sub(self.register.v[instr.y]) == None {
                         self.register.v[0xF] = 0;
                     }
-                    let result =
-                        Wrapping(self.register.v[instr.x]) - Wrapping(self.register.v[instr.y]);
-                    self.register.v[instr.x] = result.0;
+
+                    self.register.v[instr.x] = self.register.v[instr.x].wrapping_sub(self.register.v[instr.y]);
                     self.register.pc += 2;
                 }
 
                 0x6 => {
-                    println!(
-                        "0x{:X?} SHR V[{}] {{, V[{}]}}",
-                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
-                    );
+                    println!("0x{:X?} SHR V[{}] {{, V[{}]}}", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
                     let tmp = self.register.v[instr.x] & 0x01;
                     self.register.v[instr.x] >>= 1;
                     self.register.v[0xF] = tmp;
@@ -281,29 +247,20 @@ impl Cpu {
                 }
 
                 0x7 => {
-                    println!(
-                        "0x{:X?} SUBN V[{}], V[{}]",
-                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
-                    );
+                    println!("0x{:X?} SUBN V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
 
                     if self.register.v[instr.x] > self.register.v[instr.y] {
                         self.register.v[0xF] = 1;
-                    } else if self.register.v[instr.y].checked_sub(self.register.v[instr.x]) == None
-                    {
+                    } else if self.register.v[instr.y].checked_sub(self.register.v[instr.x]) == None {
                         self.register.v[0xF] = 0;
                     }
 
-                    let result =
-                        Wrapping(self.register.v[instr.y]) - Wrapping(self.register.v[instr.x]);
-                    self.register.v[instr.x] = result.0;
+                    self.register.v[instr.x] = self.register.v[instr.y].wrapping_sub(self.register.v[instr.x]);
                     self.register.pc += 2;
                 }
 
                 0xE => {
-                    println!(
-                        "0x{:X?} SHL V[{}], {{, V[{}]}}",
-                        instr.opcode, self.register.v[instr.x], self.register.v[instr.y]
-                    );
+                    println!("0x{:X?} SHL V[{}], {{, V[{}]}}", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
                     let tmp = self.register.v[instr.x] & 0x01;
                     self.register.v[instr.x] <<= 1;
                     self.register.v[0xF] = tmp;
@@ -453,11 +410,11 @@ impl Cpu {
             },
 
             _ => {}
-        }
+        }    
     }
 
     pub fn cycle(&mut self) {
         let instruction = self.fetch();
-        self.decode(instruction)
+        self.decode(instruction) 
     }
 }
