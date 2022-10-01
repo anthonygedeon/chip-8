@@ -7,13 +7,13 @@ use sdl2::pixels::{Color, PixelFormatEnum};
 use std::thread;
 use std::time::Duration;
 
+mod keyboard;
 mod cpu;
 mod display;
-mod keyboard;
 mod memory;
 
-const WINDOW_WIDTH: u32 = 640;
-const WINDOW_HEIGHT: u32 = 480;
+const WINDOW_WIDTH: u32 = 800;
+const WINDOW_HEIGHT: u32 = 400;
 const WINDOW_TITLE: &str = "CHIP-8";
 
 fn main() -> Result<(), String> {
@@ -82,15 +82,15 @@ fn main() -> Result<(), String> {
                 Event::KeyDown {
                     keycode: Some(Keycode::Num1),
                     ..
-                } => (),
+                } => cpu.keyboard.set_keypress(0x1),
                 Event::KeyDown {
                     keycode: Some(Keycode::Num2),
                     ..
-                } => (),
+                } => cpu.keyboard.set_keypress(0x2),
                 Event::KeyDown {
                     keycode: Some(Keycode::Num3),
                     ..
-                } => (),
+                } => cpu.keyboard.set_keypress(0x3),
                 Event::KeyDown {
                     keycode: Some(Keycode::Num4),
                     ..
@@ -139,6 +139,10 @@ fn main() -> Result<(), String> {
                     keycode: Some(Keycode::F),
                     ..
                 } => (),
+                Event::KeyUp {
+                    keycode: Some(Keycode::Num1),
+                   ..  
+                } => cpu.keyboard.set_keypress(0), 
                 _ => {}
             }
         }
