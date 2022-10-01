@@ -1,53 +1,54 @@
 use std::num::Wrapping;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::keyboard::Keyboard;
 use crate::display::Display;
-use crate::keyboard;
 use crate::memory::{Memory, FONT_SET};
 
 pub struct Instruction {
-    x: usize,
+    x: usize, 
 
-    y: usize,
+    y: usize, 
 
-    nn: u8,
+    nn: u8, 
 
-    opcode: u16,
+    opcode: u16, 
 
-    nnn: usize,
+    nnn: usize, 
 }
 
 // CHIP-8 Registers, think of these as variables that can be manipualated by the emulator
 #[derive(Default, Debug)]
 pub struct Register {
     // the program counter is essentially a pointer that points to the current instruction
-    // in the CHIP-8 Memory
-    pc: usize,
+    // in the CHIP-8 Memory 
+    pc: usize, 
 
     // the stack pointer points to the word in the stack.
-    sp: usize,
+    sp: usize, 
 
     // special purpose register for delaying the timer
     // when this timer is non-zero i.e { 1.. } then it should be decremented
-    dt: u8,
+    dt: u8, 
 
     // special purpose register for playing sound only when the value is non-zero
-    st: u8,
-
+    st: u8, 
+    
     // stack which is used by the sp register
-    stack: [u16; 16],
-
+    stack: [u16; 16], 
+    
     // general-purpose registers for v[0] - v[16]
     v: [u8; 16],
 
     // general-purpose register which is used to store the memory address
-    i: usize,
+    i: usize, 
 }
 
 pub struct Cpu {
-    pub register: Register,
-    pub memory: Memory,
+    pub register: Register, 
+    pub memory: Memory, 
     pub display: Display,
+    pub keyboard: Keyboard
 }
 
 fn rand() -> u8 {
@@ -58,62 +59,72 @@ fn rand() -> u8 {
 }
 
 impl Cpu {
+
     pub fn new() -> Self {
         let mut cpu = Self {
-            register: Register {
-                pc: 0x200,
-                ..Default::default()
-            },
+            register: Register { pc: 0x200, ..Default::default() }, 
             memory: Memory::new(),
-            display: Display {
-                grid: [[0; 64]; 32],
-            },
+            display: Display { grid: [[0; 64]; 32] },
+            keyboard: Keyboard { key: 0 }, 
         };
-
-        if cpu.memory.load_rom("tests/chip8-test-suite.ch8").is_err() {
-            panic!("Could not load the binary to memory.");
+       
+        if cpu.memory.load_rom("res/chip8-test-suite.ch8").is_err() {
+           panic!("Could not load the binary to memory.");
         }
 
         if cpu.memory.load_font(FONT_SET).is_err() {
-            panic!("Could not load the font to memory.");
+           panic!("Could not load the font to memory.");
         }
+        
+        // 1 - IBM LOGO
+        // 2 - Corax89's opcode test
+        // 3 - Flags test
+        // 4 - Quirks test
+        // 5 - Keypad test
+        
+        // DEBUG PURPOSES
+        cpu.memory.ram[0x1FF] = 3;
 
         cpu
     }
 
     fn get_opcode(&self) -> u16 {
-        (self.memory.ram[self.register.pc] << 8) | (self.memory.ram[self.register.pc + 1])
+        (self.memory.ram[self.register.pc] << 8) | (self.memory.ram[self.register.pc + 1]) 
     }
 
     fn fetch(&mut self) -> Instruction {
         let opcode = self.get_opcode();
         Instruction {
-            opcode,
-            x: ((opcode >> 8) & 0x000F) as usize,
-            y: ((opcode >> 4) & 0x000F) as usize,
-            nn: (opcode & 0x00FF) as u8,
+            opcode, 
+            x: ((opcode >> 8) & 0x000F) as usize, 
+            y: ((opcode >> 4) & 0x000F) as usize, 
+            nn: (opcode & 0x00FF) as u8, 
             nnn: (opcode & 0x0FFF) as usize,
-        }
+        } 
     }
 
     fn decode(&mut self, instr: Instruction) {
-        println!("PC: {:X}", self.register.pc);
+        println!("PC: {:X}\nSP: {}\nI: {}\nSTK: {:?}\nV: {:?}", self.register.pc, self.register.sp, self.register.i, self.register.stack, self.register.v);
+        println!("Keypress: {}", self.keyboard.key);
         match instr.opcode & 0xF000 {
-            0x0000 => match instr.opcode & 0x00FF {
-                0xE0 => {
-                    println!("CLS");
-                    self.display.clear();
-                    self.register.pc += 2;
-                }
+            0x0000 => {
+                match instr.opcode & 0x00FF {
+                    0xE0 => {
+                        println!("CLS");
+                        self.display.clear();
+                        self.register.pc += 2;
+                        println!();
+                    }
 
-                0xEE => {
-                    println!("RET");
-                    self.register.sp -= 1;
-                    self.register.pc = self.register.stack[self.register.sp] as usize;
-                    self.register.pc += 2;
+                    0xEE => {
+                        println!("RET");
+                        self.register.sp -= 1;
+                        self.register.pc = self.register.stack[self.register.sp] as usize;
+                        self.register.pc += 2;
+                    }
+                    _ => {}
                 }
-                _ => {}
-            },
+            }
 
             0x1000 => {
                 println!("0x{:X} JP nnn={:#x?}", instr.opcode, instr.nnn);
@@ -126,13 +137,10 @@ impl Cpu {
                 self.register.sp += 1;
                 self.register.pc = instr.nnn;
             }
-
+    
             // SKIP
             0x3000 => {
-                println!(
-                    "0x{:X?} SE V[{}], {}",
-                    instr.opcode, self.register.v[instr.x], instr.nn
-                );
+                println!("0x{:X?} SE V[{}], {}", instr.opcode, self.register.v[instr.x], instr.nn);
                 if self.register.v[instr.x] == instr.nn {
                     self.register.pc += 4;
                 } else {
@@ -141,10 +149,7 @@ impl Cpu {
             }
 
             0x4000 => {
-                println!(
-                    "0x{:X?} SNE V[{}], {}",
-                    instr.opcode, self.register.v[instr.x], instr.nn
-                );
+                println!("0x{:X?} SNE V[{}], {}", instr.opcode, self.register.v[instr.x], instr.nn);
                 if self.register.v[instr.x] != instr.nn {
                     self.register.pc += 4;
                 } else {
