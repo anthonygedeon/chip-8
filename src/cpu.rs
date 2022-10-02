@@ -1,4 +1,3 @@
-use std::num::Wrapping;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::keyboard::Keyboard;
@@ -113,7 +112,6 @@ impl Cpu {
                         println!("CLS");
                         self.display.clear();
                         self.register.pc += 2;
-                        println!();
                     }
 
                     0xEE => {
@@ -122,7 +120,7 @@ impl Cpu {
                         self.register.pc = self.register.stack[self.register.sp] as usize;
                         self.register.pc += 2;
                     }
-                    _ => {}
+                    _ => unreachable!()
                 }
             }
 
@@ -329,7 +327,7 @@ impl Cpu {
                     }
                 }
 
-                _ => {}
+                _ => unreachable!()
             },
 
             0xF000 => match instr.opcode & 0x00FF {
@@ -396,10 +394,10 @@ impl Cpu {
                     self.register.pc += 2;
                 }
 
-                _ => {}
+                _ => unreachable!()
             },
 
-            _ => {}
+            _ => unreachable!()
         }    
     }
 
