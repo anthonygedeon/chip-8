@@ -82,7 +82,7 @@ impl Cpu {
         // 5 - Keypad test
         
         // DEBUG PURPOSES
-        cpu.memory.ram[0x1FF] = 3;
+        cpu.memory.ram[0x1FF] = 4;
 
         cpu
     }
@@ -105,6 +105,16 @@ impl Cpu {
     fn decode(&mut self, instr: Instruction) {
         println!("PC: {:X}\nSP: {}\nI: {}\nSTK: {:?}\nV: {:?}", self.register.pc, self.register.sp, self.register.i, self.register.stack, self.register.v);
         println!("Keypress: {}", self.keyboard.key);
+
+        if self.register.dt > 0 {
+            self.register.dt -= 1;
+        }
+
+        if self.register.st > 0 {
+            self.register.st -= 1;
+            // TODO: Make beep noise
+        }
+
         match instr.opcode & 0xF000 {
             0x0000 => {
                 match instr.opcode & 0x00FF {
