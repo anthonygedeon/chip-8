@@ -2,9 +2,8 @@ extern crate sdl2;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::pixels::{Color, PixelFormatEnum};
+use sdl2::pixels::Color;
 
-use std::thread;
 use std::time::Duration;
 
 mod keyboard;
