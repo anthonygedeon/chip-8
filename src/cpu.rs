@@ -67,7 +67,7 @@ impl Cpu {
             keyboard: Keyboard { key: 0 }, 
         };
        
-        if cpu.memory.load_rom("res/chip8-test-suite.ch8").is_err() {
+        if cpu.memory.load_rom("resources/chip8-test-suite.ch8").is_err() {
            panic!("Could not load the binary to memory.");
         }
 
@@ -205,18 +205,21 @@ impl Cpu {
                 0x1 => {
                     println!("0x{:X?}, OR V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
                     self.register.v[instr.x] |= self.register.v[instr.y];
+                    self.register.v[0xF] = 0;
                     self.register.pc += 2;
                 }
 
                 0x2 => {
                     println!("0x{:X?} AND V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
                     self.register.v[instr.x] &= self.register.v[instr.y];
+                    self.register.v[0xF] = 0;
                     self.register.pc += 2;
                 }
 
                 0x3 => {
                     println!("0x{:X?} XOR V[{}], V[{}]", instr.opcode, self.register.v[instr.x], self.register.v[instr.y]);
                     self.register.v[instr.x] ^= self.register.v[instr.y];
+                    self.register.v[0xF] = 0;
                     self.register.pc += 2;
                 }
                 
