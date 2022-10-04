@@ -67,7 +67,7 @@ impl Cpu {
             keyboard: Keyboard { key: 0 }, 
         };
        
-        if cpu.memory.load_rom("res/chip8-test-suite.ch8").is_err() {
+        if cpu.memory.load_rom("resources/chip8-test-suite.ch8").is_err() {
            panic!("Could not load the binary to memory.");
         }
 
